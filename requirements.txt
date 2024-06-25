@@ -23,7 +23,7 @@ click==8.1.7
     # via flask
 colorama==0.4.6
     # via click
-contourpy==1.2.1
+contourpy==1.1.1
     # via matplotlib
 cycler==0.12.1
     # via matplotlib
