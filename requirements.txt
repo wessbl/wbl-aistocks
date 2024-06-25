@@ -75,7 +75,8 @@ markupsafe==2.1.5
     # via
     #   jinja2
     #   werkzeug
-matplotlib==3.9.0
+matplotlib==3.7.5
+	# was 3.9.0
     # via -r requirements.in
 mdurl==0.1.2
     # via markdown-it-py
