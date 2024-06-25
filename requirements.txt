@@ -145,7 +145,8 @@ requests==2.32.3
     #   yfinance
 rich==13.7.1
     # via keras
-scikit-learn==1.5.0
+scikit-learn==1.3.2
+	#1.5.0
     # via -r requirements.in
 scipy==1.14.0
     # via scikit-learn
