@@ -80,7 +80,8 @@ matplotlib==3.7.5
     # via -r requirements.in
 mdurl==0.1.2
     # via markdown-it-py
-ml-dtypes==0.3.2
+ml-dtypes==0.2.0
+	# was 0.3.2
     # via
     #   keras
     #   tensorflow-intel
