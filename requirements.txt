@@ -89,7 +89,8 @@ multitasking==0.0.11
     # via yfinance
 namex==0.0.8
     # via keras
-numpy==1.26.4
+numpy==1.24.4
+	#was 1.26.4
     # via
     #   -r requirements.in
     #   contourpy
