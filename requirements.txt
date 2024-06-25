@@ -114,7 +114,8 @@ packaging==24.1
     #   keras
     #   matplotlib
     #   tensorflow-intel
-pandas==2.2.2
+pandas==2.0.3
+	# was 2.2.2
     # via yfinance
 peewee==3.17.5
     # via yfinance
