@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIStockHelper</title>
+    <style>
+        .container{
+            width: 80%;
+            margin: auto;
+        }
+        .form-group{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #predictionResult img1 {
+            max-width: 200px;
+            height: auto;
+        }
+        #predictionResult img2 {
+            max-width: 200px;
+            height: auto;
+        }
+        .spinner {
+            display: none;
+            margin: auto;
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>AIStockHelper</h1>
+        <form id="stockForm">
+            <div class="form-group">
+                <select id="stockSymbol" name="stockSymbol">
+                    <option value="META">Meta (META)</option>
+                    <option value="AMZN">Amazon (AMZN)</option>
+                    <option value="AAPL">Apple (AAPL)</option>
+                    <option value="NFLX">Netflix (NFLX)</option>
+                    <option value="GOOGL">Google (GOOGL)</option>
+                </select>
+                <button onclick="submitForm(event)">Predict</button>
+            </div>
+        </form>
+        <div class="spinner" id="loadingSpinner"></div>
+        <div id="predictionResult">
+            <!-- Prediction results displayed here when available-->
+        </div>
+    </div>
+    <script>
+        document.getElementById('stockSymbol').addEventListener('change', function() {
+            // Clear the prediction result when a new stock symbol is selected
+            document.getElementById('predictionResult').innerHTML = '';
+        });
+        function submitForm(event){
+            //  Prevent form from reloading, which clears output
+            event.preventDefault()
+            const stockSymbol = document.getElementById('stockSymbol').value;
+            const spinner = document.getElementById('loadingSpinner');
+            const resultDiv = document.getElementById('predictionResult')
+            spinner.style.display = 'block'; // Show the loading spinner
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ stock_symbol: stockSymbol })
+            })
+            .then(response => response.json())
+            .then(data => {
+                spinner.style.display = 'none';
+                const resultDiv = document.getElementById('predictionResult');
+                resultDiv.innerHTML = `<p>${data.result}</p>`;
+                if (data.img1_path){
+                    const img1 = document.createElement('img');
+                    img1.src = `/${data.img1_path}`;
+                    resultDiv.appendChild(img1);
+                }
+                if (data.img2_path){
+                    const img2 = document.createElement('img');
+                    img2.src = `/${data.img2_path}`;
+                    resultDiv.appendChild(img2);
+                }
+            })
+            .catch((error) => {
+                console.error('Error: ', error);
+            })
+        }
+    </script>
+</body>
+</html>
