@@ -16,7 +16,7 @@ class LSTMModel:
     lstm_unit = 75          # 50  | 64  | 100-200, choose one layer only
     dnse_unit = 32          #  1  | 64  | choose < 5 layers no more than 128
     batch = 64              # 32  | 64  |
-    epochs = 1             # 10  | 50  | 100        ###TODO SWITCH TO 20
+    epochs = 20             # 10  | 50  | 100
     update_epoch = 3        # how many epochs for an update
 
     # Other Variables
@@ -68,10 +68,8 @@ class LSTMModel:
             if self.verbose: print("\nFetching data...")
             last_day = pd.Timestamp.now().date()
             df = yf.download(self.ticker, start=self.start_date, end=last_day)
-            print(df['Close'])
             last_day = last_day - timedelta(days=1) # yf excludes end date
             self.last_update = last_day
-            print('last_day:\t',last_day)
             if (len(df) == 0): raise ValueError("Cannot download from yfinance")
             self.preprocess(df)
 
@@ -141,7 +139,6 @@ class LSTMModel:
         last_update_txt = last_update.strftime("%Y-%m-%d")
 
         # Database connection
-        print('Save: db_path:\t', self.db_path)  #### TODO delete debug print
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -164,7 +161,6 @@ class LSTMModel:
 
     #--- Function: Load from DB ---#
     def load(self, ticker):
-        print('Load: db_path:\t', self.db_path)  #### TODO delete debug print
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
