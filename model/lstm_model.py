@@ -16,7 +16,8 @@ class LSTMModel:
     lstm_unit = 75          # 50  | 64  | 100-200, choose one layer only
     dnse_unit = 32          #  1  | 64  | choose < 5 layers no more than 128
     batch = 64              # 32  | 64  |
-    epochs = 10             # 10  | 50  | 100
+    epochs = 1             # 10  | 50  | 100        ###TODO SWITCH TO 20
+    update_epoch = 3        # how many epochs for an update
 
     # Other Variables
     save_model = True       # True False - just helps prevent time while editing
@@ -39,19 +40,20 @@ class LSTMModel:
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, given_ticker, mdl_dir):
+    def __init__(self, ticker, mdl_dir):
         if self.verbose:
-            print('\n\n\nTicker:\t', given_ticker)
+            print('\n\n\nTicker:\t', ticker)
             print('-------------')
-        self.ticker = given_ticker
-        self.model_filename = mdl_dir + 'lstm-' + given_ticker + '.keras'
+        
+        # Set global vars
+        self.ticker = ticker
+        self.model_filename = mdl_dir + 'lstm-' + ticker + '.keras'
         self.db_path = mdl_dir + 'models.db'
-        print('Init: db_path:\t', self.db_path)  #### TODO delete debug print
 
         # First, try to load the model
         try:
             self.model, self.last_update, result = self.load(self.ticker)
-
+            
             # Check for updates
             updated, expl = self.update_model()
             if self.verbose: print("\nModel Updated:\t", updated, "\nExplanation:\t", expl)
@@ -62,9 +64,14 @@ class LSTMModel:
                 if self.verbose: print('Data loaded & processed!')
 
         except:
-            # Download stock data for given years (pretend today is 12/31/23 for now)
+            # Train a new model on 10+ years of data
             if self.verbose: print("\nFetching data...")
-            df = yf.download(self.ticker, start=self.start_date, end=self.last_update)
+            last_day = pd.Timestamp.now().date()
+            df = yf.download(self.ticker, start=self.start_date, end=last_day)
+            print(df['Close'])
+            last_day = last_day - timedelta(days=1) # yf excludes end date
+            self.last_update = last_day
+            print('last_day:\t',last_day)
             if (len(df) == 0): raise ValueError("Cannot download from yfinance")
             self.preprocess(df)
 
@@ -111,7 +118,6 @@ class LSTMModel:
             model = Sequential()
             model.add(LSTM(self.lstm_unit, return_sequences=True, input_shape=(self.time_step, 1)))
             model.add(LSTM(self.lstm_unit))
-            model.add(Dense(self.dnse_unit))
             model.add(Dense(5)) # Capture weekly cycles, 5 trading days/week
             model.add(Dense(1))
             model.compile(optimizer='adam', loss='mean_squared_error')
@@ -269,8 +275,7 @@ class LSTMModel:
             today = yesterday
         df = yf.download(self.ticker, start=self.start_date, end=today)
         self.preprocess(df)
-        update_epoch = min(self.epochs, 3)
-        self.model.fit(self.X, self.y, epochs=update_epoch, batch_size=self.batch)
+        self.model.fit(self.X, self.y, epochs=self.update_epoch, batch_size=self.batch)
         self.last_update = today
         dates = 'Updated model: ' + self.start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
         return True, dates

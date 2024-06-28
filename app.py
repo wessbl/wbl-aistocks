@@ -19,7 +19,6 @@ if not os.path.exists(mdl_dir):
 
 @app.route('/')
 def home():
-    return "hello world!"
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
