@@ -10,201 +10,94 @@ from sklearn.preprocessing import MinMaxScaler
 
 class LSTMModel:
     # LSTM Performance Variables
-    ticker = 'AAPL'         # MSFT | DAC | AAPL
-    years = 10              #  5  | 10  |
-    time_step = 75          # 50  | 100 |
-    lstm_unit = 75          # 50  | 64  | 100-200, choose one layer only
-    dnse_unit = 32          #  1  | 64  | choose < 5 layers no more than 128
-    batch = 64              # 32  | 64  |
-    epochs = 20             # 10  | 50  | 100
-    update_epoch = 3        # how many epochs for an update
-
-    # Other Variables
-    save_model = True       # True False - just helps prevent time while editing
-    verbose = True          # Display outputs
-    offset = 0              # Slide predictions to match real values
-    prediction_len = 5      # how many days to predict
-    last_pred = None        # Model's last prediction
-    last_mirror = None
-    result = ''
-    model_filename = None
-    db_path = None
-    arch_filename = 'model_architecture.png'
-    start_date = '2014-01-01'
+    ticker = None               # MSFT | DAC | AAPL
+    _time_step = 75             # 50  | 100 |
+    _epochs = 2                 # 10  | 50  | 100      # TODO set to 100
+    _update_epoch = 3           # how many epochs for an update
+    _prediction_len = 10        # how many days to predict  #TODO set to 5?
+    _start_date = '2015-01-01'
     last_update = pd.Timestamp('2023-12-31')
-    model = None
+    _model = None
     orig_data = None
-    scaled_data = None
+    _scaled_data = None
+    mirror = None
+    prediction = None
+    recommendation = None
 
     X = np.array([])
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, ticker, mdl_dir):
-        if self.verbose:
-            print('\n\n\nTicker:\t', ticker)
-            print('-------------')
+    def __init__(self, ticker, model=None):
+        # Check for valid model & attempt update
+        if model is not None:
+            self.ticker = ticker
+            self.model = model
+        else:
+            # Get data & train brand-new model
+            self.preprocess()
+            print("Training new model...")
+            self.model = self.train_model(model)
         
-        # Set global vars
-        self.ticker = ticker
-        self.model_filename = mdl_dir + 'lstm-' + ticker + '.keras'
-        self.db_path = mdl_dir + 'models.db'
-
-        # First, try to load the model
-        try:
-            self.model, self.last_update, result = self.load(self.ticker)
-            
-            # Check for updates
-            updated, expl = self.update_model()
-            if self.verbose: print("\nModel Updated:\t", updated, "\nExplanation:\t", expl)
-
-            # Process data if needed
-            if (self.orig_data is None) or (len(self.orig_data) == 0):
-                self.preprocess(yf.download(self.ticker, start=self.start_date, end=self.last_update))
-                if self.verbose: print('Data loaded & processed!')
-
-        except:
-            # Train a new model on 10+ years of data
-            if self.verbose: print("\nFetching data...")
-            last_day = pd.Timestamp.now().date()
-            df = yf.download(self.ticker, start=self.start_date, end=last_day)
-            last_day = last_day - timedelta(days=1) # yf excludes end date
-            self.last_update = last_day
-            if (len(df) == 0): raise ValueError("Cannot download from yfinance")
-            self.preprocess(df)
-
-            # Train a new model
-            if self.verbose: print("Training model...")
-            self.model = self.train_model(self.model)
-
-        prediction = self.make_prediction(self.prediction_len)
-        self.result = self.buy_or_sell(prediction)
-        self.last_mirror = self.mirror_data(self.model)
-        self.save(self.ticker, self.model, self.last_update, self.result)
-        return
+        # Generate outputs now
+        self.mirror = self.mirror_data(self.model)
+        self.prediction = self.make_prediction()
+        self.recommendation = self.buy_or_sell(self.prediction)
     #------------------------------#
 
     #--- Function: Create the dataset for LSTM ---#
     def create_dataset(self, data):
         X, y = [], []
-        for i in range(len(data) - self.time_step - 1):
-            X.append(data[i:(i + self.time_step), 0])
-            y.append(data[i + self.time_step, 0])
+        for i in range(len(data) - self._time_step - 1):
+            X.append(data[i:(i + self._time_step), 0])
+            y.append(data[i + self._time_step, 0])
         return np.array(X), np.array(y)
     #---------------------------------------------#
 
+    #--- Function: Preprocess the latest data ---#
+    def preprocess(self):
+        # TODO we have lots of dates flying around here now
+        # Get all data from start through last close (yf excludes end date)
+        today = pd.Timestamp.now().date()
+        print(today)
+        print(self.last_close)
+        print(today == self.last_close)
+        if today == self.last_close:
+            df = yf.download(self.ticker, start=self.start_date)
+        else: 
+            df = yf.download(self.ticker, start=self.start_date, end=today)
+        if (len(df) == 0): raise ValueError("Cannot download from yfinance")
 
-    #--- Function: Preprocess data ---#
-    def preprocess(self, df):
-        # global orig_data, scaler, scaled_data, X, y
-        self.orig_data = df['Close'].values
-        self.orig_data = self.orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
-        self.scaler = MinMaxScaler(feature_range=(0,1))
-        self.scaled_data = self.scaler.fit_transform(self.orig_data)
+        # Create global orig_data, scaler, scaled_data, X, y
+        orig_data = df['Close'].values
+        self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
+        scaler = MinMaxScaler(feature_range=(0,1))
+        self.scaled_data = scaler.fit_transform(self.orig_data)
 
         # Create Datasets to feed LSTM
         self.X, self.y = self.create_dataset(self.scaled_data)
         self.X = self.X.reshape(self.X.shape[0], self.X.shape[1], 1)
-        return
-    #---------------------------------#
-
+    #---------------------------------------------#
 
     #--- Function: Train a new or existing model ---#
     def train_model(self, model):
         # Build and compile the LSTM, if needed
         if (model == None):
             model = Sequential()
-            model.add(LSTM(self.lstm_unit, return_sequences=True, input_shape=(self.time_step, 1)))
-            model.add(LSTM(self.lstm_unit))
-            model.add(Dense(5)) # Capture weekly cycles, 5 trading days/week
+            model.add(LSTM(200, return_sequences=True, input_shape=(self.time_step, 1)))
+            model.add(LSTM(200))
+            model.add(Dense(128))
+            model.add(Dense(32))
+            model.add(Dense(8))
             model.add(Dense(1))
             model.compile(optimizer='adam', loss='mean_squared_error')
 
         # Train model
-        model.fit(self.X, self.y, epochs=self.epochs, batch_size=self.batch)
+        model.fit(self.X, self.y, epochs=self.epochs, batch_size=64)
+        self.last_update = pd.Timestamp.now().date()
         if self.verbose: print("Model is trained!")
         return model
     #-----------------------------------------------#
-
-    #--- Function: Save to DB ---#
-    def save(self, ticker, model, last_update, result=''):
-        # Save model as file
-        model.save(self.model_filename)
-
-        # Read the model file as binary
-        with open(self.model_filename, 'rb') as f:
-            model_binary = f.read()
-
-        # Get text version of last_update
-        last_update_txt = last_update.strftime("%Y-%m-%d")
-
-        # Database connection
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS models (
-            ticker TEXT PRIMARY KEY,
-            model BLOB,
-            last_update TEXT,
-            result TEXT
-            )
-        ''')
-
-        # Store the model in the database
-        cursor.execute('''
-            INSERT OR REPLACE INTO models (ticker, model, last_update, result)
-            VALUES (?, ?, ?, ?)''',
-            (ticker, model_binary, last_update_txt, result))
-        conn.commit()
-        conn.close()
-    #------------------------------#
-
-    #--- Function: Load from DB ---#
-    def load(self, ticker):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        # Handle blob -> model
-        cursor.execute('''
-            SELECT model FROM models WHERE ticker = ?''',
-            (ticker,))
-        data = cursor.fetchone()[0]
-        with open(self.model_filename, 'wb') as file:
-            file.write(data)
-        model = load_model(self.model_filename)
-
-        # Get update & result
-        cursor.execute('''
-            SELECT last_update, result FROM models WHERE ticker = ?''',
-            (ticker,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if row:
-            last_update_text, result = row
-
-            # Last update txt -> Timestamp
-            last_update = pd.Timestamp(last_update_text)
-
-            # Done
-            if self.verbose: print("\nLoaded data from database!\nTicker:\t\t", ticker,
-                "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-                "\nResult:\t\t", result)
-            return model, last_update, result
-
-        else:
-            raise ValueError("Model could not be found in the database.")
-    #------------------------------#
-
-    #--- Function: drop SQL tables ---#
-    def drop_table(self):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('DROP TABLE IF EXISTS models')
-        conn.commit()
-        conn.close()
-        return
-    #------------------------------#
 
     #--- Function: Show how model mirrors actual data ---#
     def mirror_data(self, model):
@@ -214,7 +107,7 @@ class LSTMModel:
     #-----------------------------------------------#
 
     #--- Function: Predict price over future given days ---#
-    def make_prediction(self, days):
+    def make_prediction(self, days=_prediction_len):
         # Make sure we have data
         if self.scaled_data is None:
             self.preprocess(yf.download(self.ticker, start=self.start_date, end=self.last_update))
@@ -241,6 +134,30 @@ class LSTMModel:
         self.last_pred = prediction
         return prediction
     #------------------------------------------------------#
+
+    #--- Function: Get the last market close date ---#
+    def last_close(self):
+        # Get the current time & day
+        now = datetime.now(pytz.timezone('US/Eastern'))
+        today = now.date()
+
+        # If the market is closed, return today
+        market_close_time = now.replace(hour=16, minute=0, second=0)
+        market_closed = market_close_time <= now
+        if market_closed:
+            return today
+
+        # Get data for last several closes and capture date
+        two_weeks = now - timedelta(days=10)
+        minidata = yf.download(self.ticker, start=two_weeks, end=today)
+        minidata.reset_index(inplace=True)
+        minidata = minidata['Date']
+
+        # Get 'yesterday': the last market close before today
+        yesterday = minidata[len(minidata) - 1] # Last market close
+        yesterday = yesterday.to_pydatetime().date()
+        return yesterday
+    #---------------------------------------------------#
 
     #--- Function: Train the model on the latest closing price ---#
     def update_model(self):
@@ -269,6 +186,7 @@ class LSTMModel:
         # Update model with all close prices from original start date
         if (not market_closed):
             today = yesterday
+        #TODO downloading from yf might be irrelevant now
         df = yf.download(self.ticker, start=self.start_date, end=today)
         self.preprocess(df)
         self.model.fit(self.X, self.y, epochs=self.update_epoch, batch_size=self.batch)
