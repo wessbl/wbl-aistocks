@@ -51,7 +51,7 @@ def train_models():
     tickers = ['AAPL', 'META', 'AMZN', 'NFLX', 'GOOGL']
     for ticker in tickers:
         models[ticker] = Model(ticker)
-    # model = LSTMModel('AAPL', mdl_dir)
+    # model = Model('AAPL')
     # model = LSTMModel('META', mdl_dir)
     # model = LSTMModel('AMZN', mdl_dir)
     # model = LSTMModel('NFLX', mdl_dir)
@@ -71,6 +71,7 @@ if __name__ == '__main__':
         os.makedirs(mdl_dir)
     
     # Train 5 models
+    # os.remove('static/models/models.db')      # TODO delete line
     db_path = 'static/models/models.db'
     if not os.path.exists(db_path):
         train_models()

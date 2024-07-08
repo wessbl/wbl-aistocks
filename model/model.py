@@ -23,6 +23,8 @@ class Model:
     
     #--- Constructor ---#
     def __init__(self, ticker):
+        self.ticker = ticker
+
         # Create paths
         self._model_path = 'static/models/' + ticker + '.keras'
         self.img1_path = 'static/images/' + ticker + 'pred.png'
@@ -30,10 +32,10 @@ class Model:
 
         # First, try to load an existing model
         try:
-            model, last_update, self.recommendation = self.load(ticker)
+            model, last_update, self.recommendation = self._load(ticker)
             self._model = LSTMModel(ticker, model)
 
-            # Attempt update
+            # Attempt update, generate new outputs if needed
             updated, text = self._model.update_model()
             print("\nModel Updated:\t", updated, "\nExplanation:\t", text)
             if updated:
@@ -42,33 +44,29 @@ class Model:
         except:
             # Train a new model on 10+ years of data
             self._model = LSTMModel(ticker)
-        self.save(self.ticker, self.model, self.last_update, self.result)
+            self.generate_output(self._model)
+        self._save(self.ticker, self._model, self._model.last_update, self.recommendation)
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self, model):
         # Make prediction (data) & recommendation (text)
-        prediction = model.make_prediction(self.prediction_len)
+        prediction = model.make_prediction()
         self.recommendation = model.buy_or_sell(prediction)
         
-        mirror = model.mirror_data(model)
-        self._generate_prediction(model)
-        self._generate_mirror(model)
+        mirror = model.mirror_data()
+        self._generate_prediction(model, prediction)
+        self._generate_mirror(model, mirror)
     #----------------------------------------------#
 
     #--- Function: Create prediction image ---#
-    def _generate_prediction(self, model):
+    def _generate_prediction(self, model, prediction):
         # Get variables
-        orig_data = model.orig_data
-        time_step = model.time_step
-        ticker = model.ticker
-        prediction = model.last_pred
-
-        zoom_data = orig_data[-time_step:]
-        dividing_line = time_step - 1
+        zoom_data = model.orig_data[-model.time_step:]
+        dividing_line = model.time_step - 1
         end = dividing_line + len(prediction)
         plt.figure(figsize=(6, 3))
-        plt.title(f'Prediction - {ticker}')
+        plt.title(f'Prediction - {model.ticker}')
         plt.axvline(x=dividing_line, color='grey', linestyle=':', label='Last Close')
         plt.plot(zoom_data, label="Actual Price")
         plt.plot(np.arange(dividing_line, end), prediction, label='Prediction')
@@ -80,21 +78,15 @@ class Model:
     #------------------------------------------#
 
     #--- Function: Create price history image ---#
-    def _generate_mirror(self, model):
-        # Get variables
-        ticker = model.ticker
-        time_step = model.time_step
-        orig_data = model.orig_data
-        mirror = model.last_mirror
-
+    def _generate_mirror(self, model, mirror):
         # Start + end dates for 'mirror' display
-        start = time_step
+        start = model.time_step
         end = start + len(mirror)
 
         # Create matplot
         plt.figure(figsize=(6, 3))
-        plt.title(f'Model Against Actual Price - {ticker}')
-        plt.plot(orig_data, label="Actual Price")
+        plt.title(f'Model Against Actual Price - {model.ticker}')
+        plt.plot(model.orig_data, label="Actual Price")
         plt.plot(np.arange(start, end), mirror, label='Model Prediction')
         plt.legend()
 
@@ -106,17 +98,17 @@ class Model:
     #--- Function: Save to DB ---#
     def _save(self, ticker, model, last_update, result=''):
         # Save model as file
-        model.save(self.model_filename)
+        model._model.save(self._model_path)
 
         # Read the model file as binary
-        with open(self.model_filename, 'rb') as f:
+        with open(self._model_path, 'rb') as f:
             model_binary = f.read()
 
         # Get text version of last_update
         last_update_txt = last_update.strftime("%Y-%m-%d")
 
         # Database connection
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS models (
@@ -138,7 +130,7 @@ class Model:
 
     #--- Function: Load from DB ---#
     def _load(self, ticker):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
         # Handle blob -> model
@@ -146,9 +138,9 @@ class Model:
             SELECT model FROM models WHERE ticker = ?''',
             (ticker,))
         data = cursor.fetchone()[0]
-        with open(self.model_filename, 'wb') as file:
+        with open(self._model_path, 'wb') as file:
             file.write(data)
-        model = load_model(self.model_filename)
+        model = load_model(self._model_path)
 
         # Get update & result
         cursor.execute('''
