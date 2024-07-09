@@ -3,7 +3,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from model.lstm_model import LSTMModel
+from keras.models import load_model
 
 
 # A wrapper class for LSTMModels that generates images
@@ -33,7 +35,7 @@ class Model:
         # First, try to load an existing model
         try:
             model, last_update, self.recommendation = self._load(ticker)
-            self._model = LSTMModel(ticker, model)
+            self._model = LSTMModel(ticker, model, last_update)
 
             # Attempt update, generate new outputs if needed
             updated, text = self._model.update_model()
@@ -41,7 +43,9 @@ class Model:
             if updated:
                 self.generate_output(self._model)
 
-        except:
+        except Exception as e:
+            print("Could not find ticker in database:\t", ticker)
+            print("Error:\t", str(e))
             # Train a new model on 10+ years of data
             self._model = LSTMModel(ticker)
             self.generate_output(self._model)
@@ -156,7 +160,7 @@ class Model:
             last_update = pd.Timestamp(last_update_text)
 
             # Done
-            if self.verbose: print("\nLoaded data from database!\nTicker:\t\t", ticker,
+            print("\nLoaded data from database!\nTicker:\t\t", ticker,
                 "\nModel:\t\t", model, "\nLast Update:\t", last_update,
                 "\nResult:\t\t", result)
             return model, last_update, result

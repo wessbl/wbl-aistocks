@@ -3,19 +3,19 @@ import numpy as np
 import pandas as pd
 import pytz
 from datetime import datetime, timedelta
-from keras.models import Sequential, load_model
+from keras.models import Sequential
 from keras.layers import Dense, LSTM
 from sklearn.preprocessing import MinMaxScaler
 
 class LSTMModel:
     # LSTM Performance Variables
     ticker = None               # MSFT | DAC | AAPL
-    time_step = 75             # 50  | 100 |
-    _epochs = 1                 # 10  | 50  | 100      # TODO set to 100
+    time_step = 50              # 50  | 100 |
+    _epochs = 100               # 10  | 50  | 100
     _update_epoch = 3           # how many epochs for an update
-    _prediction_len = 10        # how many days to predict  #TODO set to 5?
+    _prediction_len = 10        # how many days to predict
     _start_date = '2015-01-01'
-    last_update = pd.Timestamp('2023-12-31')
+    last_update = None
     _model = None
     orig_data = None
     _scaled_data = None
@@ -26,11 +26,12 @@ class LSTMModel:
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, ticker, model=None):
+    def __init__(self, ticker, model=None, last_update=None):
         # Check for valid model & attempt update
         if model is not None:
             self.ticker = ticker
             self._model = model
+            self.last_update = last_update
         else:
             # Get data & train brand-new model
             self.ticker = ticker

@@ -21,6 +21,7 @@ def home():
 # 'Predict' button clicked
 @app.route('/predict', methods=['POST'])
 def predict():
+    global models
     data = request.json
     if 'stock_symbol' not in data:
         return jsonify({'error': 'No stock symbol provided'}), 400
@@ -28,10 +29,10 @@ def predict():
     stock_symbol = data['stock_symbol']
 
     try:
-        model = Model(stock_symbol)
-        # TODO do we need this?
-        # img1_path = os.path.join(img_dir, f'{ticker}_complete.png')
-        # img2_path = os.path.join(img_dir, f'{ticker}_prediction.png')
+        model = models.get(stock_symbol)
+        if model is None:
+            models[stock_symbol] = Model(stock_symbol)
+            model = models.get(stock_symbol)
         
         return jsonify({
             'result': model.recommendation,
@@ -48,15 +49,10 @@ def predict():
 
 #--- Function: Train FAANG models ---#
 def train_models():
+    global models
     tickers = ['AAPL', 'META', 'AMZN', 'NFLX', 'GOOGL']
     for ticker in tickers:
         models[ticker] = Model(ticker)
-    # model = Model('AAPL')
-    # model = LSTMModel('META', mdl_dir)
-    # model = LSTMModel('AMZN', mdl_dir)
-    # model = LSTMModel('NFLX', mdl_dir)
-    # model = LSTMModel('GOOGL', mdl_dir)
-    return
 #------------------------------------#
 
 #--- First Boot ---#
@@ -70,8 +66,10 @@ if __name__ == '__main__':
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
     
+    # DEBUG - Start db over every run
+    # os.remove('static/models/models.db')  # Starts db over every run (debug)
+
     # Train 5 models
-    # os.remove('static/models/models.db')      # TODO delete line
     db_path = 'static/models/models.db'
     if not os.path.exists(db_path):
         train_models()
