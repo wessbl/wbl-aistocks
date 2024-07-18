@@ -11,8 +11,8 @@ class LSTMModel:
     # LSTM Performance Variables
     ticker = None               # MSFT | DAC | AAPL
     time_step = 50              # 50  | 100 |
-    _epochs = 100               # 10  | 50  | 100
-    _update_epoch = 3           # how many epochs for an update
+    _epochs = 50                # 10  | 50  | 100
+    _update_epoch = 1           # how many epochs for an update
     _prediction_len = 10        # how many days to predict
     _start_date = '2015-01-01'
     last_update = None

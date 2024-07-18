@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, jsonify
 from model.model import Model
+import schedule
 import os
 
 # Suppresses INFO and WARNING messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Turn off oneDNN custom operations
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -58,7 +59,6 @@ def train_models():
 #--- First Boot ---#
 if __name__ == '__main__':
     # Create dirs
-    print("booted up!")
     img_dir = 'static/images'
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
