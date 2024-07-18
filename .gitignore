@@ -1,3 +1,6 @@
 *.png
 *.db
 *.keras
+start_gunicorn.sh
+venv/
+static/
