@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify
 from model.model import Model
-import schedule
 import os
 
 # Suppresses INFO and WARNING messages
@@ -73,3 +72,4 @@ if __name__ == '__main__':
         train_models()
     app.run(debug=True)
 #---------------------#
+

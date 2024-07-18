@@ -11,7 +11,7 @@ class LSTMModel:
     # LSTM Performance Variables
     ticker = None               # MSFT | DAC | AAPL
     time_step = 50              # 50  | 100 |
-    _epochs = 50                # 10  | 50  | 100
+    _epochs = 10                # 10  | 50  | 100   #TODO switch to 100 after server switch
     _update_epoch = 1           # how many epochs for an update
     _prediction_len = 10        # how many days to predict
     _start_date = '2015-01-01'
