@@ -21,6 +21,7 @@ class LSTMModel:
     _scaled_data = None
     prediction = None
     recommendation = None
+    progress = 0
 
     X = np.array([])
     scaler = MinMaxScaler(feature_range=(0,1))
@@ -152,6 +153,7 @@ class LSTMModel:
 
     #--- Function: Train the model on the latest closing price ---#
     def update_model(self):
+        global progress
         # Get the current time & day
         now = datetime.now(pytz.timezone('US/Eastern'))
         today = now.date()

@@ -58,6 +58,7 @@ def train_models():
 #--- First Boot ---#
 if __name__ == '__main__':
     # Create dirs
+    print("booted up!")
     img_dir = 'static/images'
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
@@ -65,9 +66,6 @@ if __name__ == '__main__':
     mdl_dir = 'static/models/'
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
-    
-    # DEBUG - Start db over every run
-    # os.remove('static/models/models.db')  # Starts db over every run (debug)
 
     # Train 5 models
     db_path = 'static/models/models.db'

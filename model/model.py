@@ -45,7 +45,7 @@ class Model:
 
         except Exception as e:
             print("Could not find ticker in database:\t", ticker)
-            print("Error:\t", str(e))
+            print("Creating new model...")
             # Train a new model on 10+ years of data
             self._model = LSTMModel(ticker)
             self.generate_output(self._model)
