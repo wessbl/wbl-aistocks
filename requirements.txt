@@ -54,14 +54,16 @@ pytz==2024.1
 requests==2.32.3
 rich==13.7.1
 scikit-learn==1.5.0
-scipy==1.14.0
+scipy==1.13.1
+	#was 1.14.0
 setuptools==70.1.0
 six==1.16.0
 soupsieve==2.5
 tensorboard==2.16.2
 tensorboard-data-server==0.7.2
 tensorflow==2.16.1
-tensorflow-intel==2.16.1
+tensorflow-intel==0.0.1
+	#was 2.16.1
 termcolor==2.4.0
 threadpoolctl==3.5.0
 typing_extensions==4.12.2
