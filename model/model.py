@@ -44,6 +44,7 @@ class Model:
                 self.generate_output(self._model)
 
         except Exception as e:
+            print(str(e))
             print("Could not find ticker in database:\t", ticker)
             print("Creating new model...")
             # Train a new model on 10+ years of data

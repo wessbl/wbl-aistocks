@@ -33,6 +33,8 @@ class LSTMModel:
             self.ticker = ticker
             self._model = model
             self.last_update = last_update
+            print("Last Update:\t", self.last_update)     #TODO remove debug print
+            print("Model cached from loaded data.")
         else:
             # Get data & train brand-new model
             self.ticker = ticker
@@ -102,7 +104,7 @@ class LSTMModel:
     def make_prediction(self, days=_prediction_len):
         # Make sure we have data
         if self.scaled_data is None:
-            self.preprocess(yf.download(self.ticker, start=self.start_date, end=self.last_update))
+            self.preprocess(yf.download(self.ticker, start=self._start_date, end=self.last_update))
         
         # Prepare enough data for one prediction
         multi_day_data = self.scaled_data[-self.time_step:]
@@ -179,12 +181,10 @@ class LSTMModel:
         # Update model with all close prices from original start date
         if (not market_closed):
             today = yesterday
-        #TODO downloading from yf might be irrelevant now
-        df = yf.download(self.ticker, start=self.start_date, end=today)
-        self.preprocess(df)
-        self._model.fit(self.X, self.y, epochs=self.update_epoch, batch_size=self.batch)
+        self.preprocess()
+        self._model.fit(self.X, self.y, epochs=self._update_epoch, batch_size=64)
         self.last_update = today
-        dates = 'Updated model: ' + self.start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
+        dates = 'Updated model: ' + self._start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
         return True, dates
     #-------------------------------------------------------------#
 
