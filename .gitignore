@@ -2,6 +2,7 @@
 *.db
 *.keras
 *.swp
+*.pyc
 start_gunicorn.sh
 venv/
 static/
