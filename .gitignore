@@ -1,6 +1,8 @@
 *.png
 *.db
 *.keras
+*.swp
 start_gunicorn.sh
 venv/
 static/
+*/__pycache__/
