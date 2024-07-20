@@ -51,3 +51,4 @@ if __name__ == '__main__':
     print("Updated:\t", dbi.get_updated())
     dbi.outdate('GOOGL')
     print("Outdated GOOGL")
+    print("Updated:\t", dbi.get_updated())
