@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from model.model import Model
 import os
 
@@ -17,6 +17,11 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return render_template('index.html')
+
+# White paper download
+@app.route('/docs/<path:filename>')
+def download_file(filename):
+    return send_from_directory('docs', filename)
 
 # 'Predict' button clicked
 @app.route('/predict', methods=['POST'])

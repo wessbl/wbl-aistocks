@@ -17,6 +17,12 @@ h1 {
     text-align: center;
 }
 
+img {
+    max-width: 100%;
+    height: auto;
+    display: block; /* Removes the bottom space under images */
+}
+
 form {
     display: flex;
     flex-direction: column;

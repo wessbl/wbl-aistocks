@@ -3,9 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Announcements / Updates can go here--->
     <title>AIStockHelper</title>
     <style>
+        .collapsible {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+            margin-top: 10px;
+        }
+        .collapsible-container {
+            text-align: center;
+            margin-top: 50px;
+        }
         .container{
             width: 80%;
             margin: auto;
@@ -44,6 +55,13 @@
 <body>
     <div class="container">
         <h1>AIStockHelper</h1>
+        <!-- Announcements / Updates can go here--->
+        <p>Welcome! Feel free to check out my
+            <a href="https://github.com/wessbl/wbl-aistocks" target="_blank">repo</a>
+           or  
+            <a href="../docs/Capstone - WBL.pdf" target="_blank">white paper </a>
+            (<a href="../docs/Capstone - WBL.pdf" download="WBL-Capstone">download</a>).
+        </p>
         <form id="stockForm">
             <div class="form-group">
                 <select id="stockSymbol" name="stockSymbol">
@@ -60,8 +78,23 @@
         <div id="predictionResult">
             <!-- Prediction results displayed here when available-->
         </div>
+        <div class="collapsible-container">
+            <p><span class="collapsible">Not loading?</span>
+                <span class="hidden">Models check for a new market close every request (weekdays at 4pm Eastern).
+                    Please allow ~20 seconds for each update, after which they will load immediately.
+                </span>
+            </p>
+        </div>
     </div>
     <script>
+        document.querySelector('.collapsible').addEventListener('click', function() {
+            var hidden = document.querySelector('.hidden');
+            if (hidden.style.display === 'none' || hidden.style.display === '') {
+                hidden.style.display = 'block';
+            } else {
+                hidden.style.display = 'none';
+            }
+        });
         document.getElementById('stockSymbol').addEventListener('change', function() {
             // Clear the prediction result when a new stock symbol is selected
             document.getElementById('predictionResult').innerHTML = '';
@@ -99,6 +132,8 @@
             .catch((error) => {
                 console.error('Error: ', error);
             })
+            //  Make sure hidden elements are hidden again
+            document.querySelector('.hidden').style.display = 'none';
         }
     </script>
 </body>
