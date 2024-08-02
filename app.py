@@ -15,6 +15,7 @@ app = Flask(__name__)
 
 # Show /index.html
 @app.route('/')
+@app.route('/stocks')
 def home():
     return render_template('index.html')
 
@@ -62,6 +63,7 @@ def train_models():
 
 #--- First Boot ---#
 if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)
     # Create dirs
     img_dir = 'static/images'
     if not os.path.exists(img_dir):
