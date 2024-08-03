@@ -1,8 +1,14 @@
 import sqlite3
+import os
 
 class DBInterface:
     # Path to database
-    _db_path = '../static/models/models.db'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    _db_path = os.path.join(base_dir, '../static/models/models.db')
+    
+    # Verify path
+    if not os.path.exists(_db_path):
+        raise FileNotFoundError(f"Database file not found at {_db_path}")
 
     #--- Function: Get all the tickers in db ---#
     def get_tickers(self):
@@ -23,13 +29,13 @@ class DBInterface:
         #--- Print tickers from the database
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT ticker, last_update FROM models')
+        cursor.execute('SELECT last_update FROM models')
         data = cursor.fetchall()
         conn.close()
-        pairs = []
+        dates = []
         for row in data:
-            pairs.append((row[0], row[1]))
-        return pairs
+            dates.append(row[0])
+        return dates
     #-------------------------------------------#
 
     #--- Function: set stock as outdated ---#
@@ -49,6 +55,7 @@ if __name__ == '__main__':
     dbi = DBInterface()
     print("Tickers:\t", dbi.get_tickers())
     print("Updated:\t", dbi.get_updated())
-    dbi.outdate('GOOGL')
-    print("Outdated GOOGL")
+    for tick in dbi.get_tickers():
+        dbi.outdate(tick)
+    print("Outdated all models.")
     print("Updated:\t", dbi.get_updated())

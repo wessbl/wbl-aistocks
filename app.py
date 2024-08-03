@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # Show /index.html
 @app.route('/')
-#@app.route('/stocks')
+@app.route('/stocks')
 def home():
     return render_template('index.html')
 
