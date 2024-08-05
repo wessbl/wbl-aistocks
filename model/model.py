@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import matplotlib
 matplotlib.use('Agg')
@@ -5,7 +6,50 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from model.lstm_model import LSTMModel
+import db_interface as db
 from keras.models import load_model
+
+# A global collection of Models
+class Models:
+    models = {}
+    _base_dir = os.path.dirname(os.path.abspath(__file__))
+    _db_path = os.path.join(_base_dir, '../static/models/models.db')
+
+    #--- Ctor ---#
+    def populate(self):
+        global models
+        # If database isn't created yet, create FAANG stock models
+        if not os.path.exists(self.db_path):
+            tickers = ['AAPL', 'META', 'AMZN', 'NFLX', 'GOOGL']
+            for ticker in tickers:
+                self.get(ticker)
+        
+        # Create all the models for each db entry
+        else:
+            for ticker in db.get_tickers():
+                self.get(ticker)
+    #---------------------------#
+    
+    #--- Get Model ---#
+    def get(self, ticker):
+        global models
+        model = models.get(ticker)
+
+        # Create new model if needed
+        if model is None:
+            models[ticker] = Model(ticker)
+            model = models.get(ticker)
+        
+        return model
+    #----------------#
+
+    #--- Update ---#
+    def update(self):
+        global models
+        for model in models:
+            model.update()
+
+#---------------------------------------------#
 
 
 # A wrapper class for LSTMModels that generates images
@@ -13,7 +57,7 @@ class Model:
     # LSTM Vars
     ticker = None
     recommendation = None
-    _model = None
+    _lstm = None
     _prediction = None
     _mirror = None
 
@@ -21,38 +65,42 @@ class Model:
     img1_path = None
     img2_path = None
     _db_path = 'static/models/models.db'
-    _model_path = None
+    _lstm_path = None
     
     #--- Constructor ---#
     def __init__(self, ticker):
         self.ticker = ticker
 
         # Create paths
-        self._model_path = 'static/models/' + ticker + '.keras'
+        self._lstm_path = 'static/models/' + ticker + '.keras'
         self.img1_path = 'static/images/' + ticker + 'pred.png'
         self.img2_path = 'static/images/' + ticker + 'mirr.png'
 
         # First, try to load an existing model
         try:
             model, last_update, self.recommendation = self._load(ticker)
-            self._model = LSTMModel(ticker, model, last_update)
-
-            # Attempt update, generate new outputs if needed
-            updated, text = self._model.update_model()
-            print("\nModel Updated:\t", updated, "\nExplanation:\t", text)
-            if updated:
-                self.generate_output(self._model)
+            self._lstm = LSTMModel(ticker, model, last_update)
+            self.update()
 
         except Exception as e:
             print(str(e))
             print("Could not find ticker in database:\t", ticker)
             print("Creating new model...")
             # Train a new model on 10+ years of data
-            self._model = LSTMModel(ticker)
-            self.generate_output(self._model)
-        self._save(self.ticker, self._model, self._model.last_update, self.recommendation)
+            self._lstm = LSTMModel(ticker)
+            self.generate_output(self._lstm)
+            self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #-------------------------------#
-    
+
+    #--- Function: Initiate LSTM Update ---#
+    def update(self):
+        updated, text = self._lstm.update_model()
+        print("\nModel Updated:\t", updated, "\nExplanation:\t", text)
+        if updated:
+            self.generate_output(self._lstm)
+            self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+    #----------------------------------------------#
+
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self, model):
         # Make prediction (data) & recommendation (text)
@@ -103,10 +151,10 @@ class Model:
     #--- Function: Save to DB ---#
     def _save(self, ticker, model, last_update, result=''):
         # Save model as file
-        model._model.save(self._model_path)
+        model._lstm.save(self._lstm_path)
 
         # Read the model file as binary
-        with open(self._model_path, 'rb') as f:
+        with open(self._lstm_path, 'rb') as f:
             model_binary = f.read()
 
         # Get text version of last_update
@@ -143,9 +191,9 @@ class Model:
             SELECT model FROM models WHERE ticker = ?''',
             (ticker,))
         data = cursor.fetchone()[0]
-        with open(self._model_path, 'wb') as file:
+        with open(self._lstm_path, 'wb') as file:
             file.write(data)
-        model = load_model(self._model_path)
+        model = load_model(self._lstm_path)
 
         # Get update & result
         cursor.execute('''

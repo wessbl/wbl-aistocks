@@ -3,7 +3,7 @@ import os
 
 class DBInterface:
     # Path to database
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    _base_dir = os.path.dirname(os.path.abspath(__file__))
     _db_path = os.path.join(base_dir, '../static/models/models.db')
     
     # Verify path

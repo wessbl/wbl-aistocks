@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from model.model import Model
+from model.model import Models
 import os
 
 # Suppresses INFO and WARNING messages
@@ -7,9 +7,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Turn off oneDNN custom operations
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
-# Dictionary of models ticker : Model
-models = {}
 
 app = Flask(__name__)
 
@@ -27,7 +24,6 @@ def download_file(filename):
 # 'Predict' button clicked
 @app.route('/predict', methods=['POST'])
 def predict():
-    global models
     data = request.json
     if 'stock_symbol' not in data:
         return jsonify({'error': 'No stock symbol provided'}), 400
@@ -35,10 +31,7 @@ def predict():
     stock_symbol = data['stock_symbol']
 
     try:
-        model = models.get(stock_symbol)
-        if model is None:
-            models[stock_symbol] = Model(stock_symbol)
-            model = models.get(stock_symbol)
+        model = Models.get(stock_symbol)
         
         return jsonify({
             'result': model.recommendation,
@@ -53,14 +46,6 @@ def predict():
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
 
-#--- Function: Train FAANG models ---#
-def train_models():
-    global models
-    tickers = ['AAPL', 'META', 'AMZN', 'NFLX', 'GOOGL']
-    for ticker in tickers:
-        models[ticker] = Model(ticker)
-#------------------------------------#
-
 #--- First Boot ---#
 if __name__ == '__main__':
     # Create dirs
@@ -72,10 +57,7 @@ if __name__ == '__main__':
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
 
-    # Train 5 models
-    db_path = 'static/models/models.db'
-    if not os.path.exists(db_path):
-        train_models()
+    Models.populate()
     app.run(debug=False)
 #---------------------#
 
