@@ -1,6 +1,8 @@
 import sqlite3
 import os
 
+from model.model import Model
+
 class DBInterface:
     # Path to database
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,11 +53,38 @@ class DBInterface:
         conn.close()
     #-------------------------------------------#
 
+
 if __name__ == '__main__':
     dbi = DBInterface()
-    print("Tickers:\t", dbi.get_tickers())
-    print("Updated:\t", dbi.get_updated())
-    for tick in dbi.get_tickers():
-        dbi.outdate(tick)
-    print("Outdated all models.")
-    print("Updated:\t", dbi.get_updated())
+    
+    entry = -1
+    while entry != 0:
+        print('''\n*** ADMIN OPERATIONS MENU ***
+              1. Outdate all models
+              2. Train models - epochs
+              0. Exit''')
+        entry = input('Please make your selection: ')
+
+        try:
+            entry = int(entry)
+            if entry == 1:
+                for ticker in dbi.get_tickers():
+                    dbi.outdate(ticker)
+                print('Outdated all models.')
+
+            elif entry == 2:
+                epochs = int(input('How many epochs? '))
+                for ticker in dbi.get_tickers():
+                    print('Training model for ' + ticker + '...')
+                    model = Model(ticker)
+                    model.train(epochs)
+                    print('Finished training!\n')
+            
+            if entry != 0:
+                input('Press any key to continue...')
+
+        except ValueError as e:
+            print('Invalid entry')
+            entry = -1
+
+

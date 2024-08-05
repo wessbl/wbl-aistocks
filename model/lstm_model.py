@@ -3,6 +3,12 @@ import numpy as np
 import pandas as pd
 import pytz
 from datetime import datetime, timedelta
+import logging
+import os
+logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'    # Suppresses INFO and WARNING messages
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'   # Turn off oneDNN custom operations
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense, LSTM
 from sklearn.preprocessing import MinMaxScaler
@@ -184,6 +190,15 @@ class LSTMModel:
         self._model.fit(self.X, self.y, epochs=self._update_epoch, batch_size=64)
         self.last_update = today
         dates = 'Updated model: ' + self._start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
+        return True, dates
+    #-------------------------------------------------------------#
+
+    #--- Function: Train the model on the latest closing price ---#
+    def train(self, epochs):
+        self.preprocess()
+        self._model.fit(self.X, self.y, epochs=epochs, batch_size=64)
+        self.last_update = pd.Timestamp.now().date()
+        dates = 'Trained model for ' + self.ticker + ' ' + str(epochs) + 'times.'
         return True, dates
     #-------------------------------------------------------------#
 
