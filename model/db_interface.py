@@ -1,6 +1,5 @@
 import sqlite3
 import os
-
 from model.model import Model
 
 class DBInterface:
@@ -55,6 +54,9 @@ class DBInterface:
 
 
 if __name__ == '__main__':
+    # This can be run in the terminal from root directory:
+    #       python -m model.db_interface
+    # Note that epochs roughly equal minutes for 5 models on the AWS server
     dbi = DBInterface()
     
     entry = -1
@@ -62,6 +64,7 @@ if __name__ == '__main__':
         print('''\n*** ADMIN OPERATIONS MENU ***
               1. Outdate all models
               2. Train models - epochs
+              3. Train models - MSE Threshold
               0. Exit''')
         entry = input('Please make your selection: ')
 
@@ -78,7 +81,17 @@ if __name__ == '__main__':
                     print('Training model for ' + ticker + '...')
                     model = Model(ticker)
                     model.train(epochs)
-                    print('Finished training!\n')
+                    print('\nFinished training!')
+            
+            elif entry == 3:
+                epochs = 50
+                threshold = 0.0002
+                for ticker in dbi.get_tickers():
+                    print('Training model for ' + ticker + 
+                          ' until MSE surpasses ' + str(threshold) + '...')
+                    model = Model(ticker)
+                    model.train(epochs, threshold=threshold)
+                    print('\nFinished training!')
             
             if entry != 0:
                 input('Press any key to continue...')
@@ -86,5 +99,3 @@ if __name__ == '__main__':
         except ValueError as e:
             print('Invalid entry')
             entry = -1
-
-

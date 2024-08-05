@@ -93,7 +93,7 @@ class LSTMModel:
 
         # Train model
         model.fit(self.X, self.y, epochs=self._epochs, batch_size=64)
-        self.last_update = pd.Timestamp.now().date()
+        self.last_update = self.last_close()
         print("Model is trained!")
         return model
     #-----------------------------------------------#
@@ -172,12 +172,7 @@ class LSTMModel:
             return False, "Model is already updated on today's market close."
 
         # Get 'yesterday': the last market close before today
-        two_weeks = now - timedelta(days=10)    #enough data for several closes
-        minidata = yf.download(self.ticker, start=two_weeks, end=today)
-        minidata.reset_index(inplace=True)
-        minidata = minidata['Date']
-        yesterday = minidata[len(minidata) - 1] # Last market close
-        yesterday = yesterday.to_pydatetime().date()
+        yesterday = self.last_close()
 
         # If the market isn't closed but last update was yesterday, return
         if (not market_closed) & (self.last_update.date() == yesterday):
@@ -188,18 +183,40 @@ class LSTMModel:
             today = yesterday
         self.preprocess()
         self._model.fit(self.X, self.y, epochs=self._update_epoch, batch_size=64)
-        self.last_update = today
+        self.last_update = self.last_close()
         dates = 'Updated model: ' + self._start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
         return True, dates
     #-------------------------------------------------------------#
 
     #--- Function: Train the model on the latest closing price ---#
-    def train(self, epochs):
+    def train(self, epochs, mse_threshold=0):
+        global model
+        # model.compile(optimizer='adam', loss='mse', metrics=[MeanSquaredError()])
         self.preprocess()
-        self._model.fit(self.X, self.y, epochs=epochs, batch_size=64)
-        self.last_update = pd.Timestamp.now().date()
-        dates = 'Trained model for ' + self.ticker + ' ' + str(epochs) + 'times.'
-        return True, dates
+
+        # Loop until threshold either threshold is met or epochs exausted
+        counter = 0
+        mse_value = 999999   # Stupidly high error value guarantees one loop
+        while (mse_value > mse_threshold) and (counter < epochs):
+            epochs_ = epochs
+            # Only do 5 epochs at a time if we're going for threshold
+            if mse_threshold > 0:
+                epochs_ = 5
+            history = self._model.fit(self.X, self.y, epochs=epochs_, batch_size=64)
+            mse_values = history.history['loss']
+            mse_value = mse_values[-1:][0]
+            counter += epochs_
+            if mse_threshold > 0:
+                if mse_value > mse_threshold:
+                    if (counter < epochs):
+                        print('MSE value ' + str(round(mse_value, 5)) + ' is inadequate, looping again...')
+                    else:
+                        print('MSE value ' + str(round(mse_value, 5)) + ' is inadequate but epochs maxed out.')
+                else:
+                    print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
+
+        self.last_update = self.last_close()
+        print('Trained model for ' + self.ticker + ' ' + str(epochs) + ' times.')
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#

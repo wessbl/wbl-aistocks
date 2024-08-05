@@ -55,8 +55,8 @@ class Model:
     #-------------------------------#
     
     #--- Function: Train model further ---#
-    def train(self, epochs):
-        self._lstm.train(epochs)
+    def train(self, epochs, threshold=0):
+        self._lstm.train(epochs, mse_threshold=threshold)
         self.generate_output(self._lstm)
         self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #----------------------------------------------#
@@ -169,9 +169,10 @@ class Model:
             last_update = pd.Timestamp(last_update_text)
 
             # Done
-            print("\nLoaded data from database!\nTicker:\t\t", ticker,
-                "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-                "\nResult:\t\t", result)
+            print("\nModel for "+ticker+" loaded from database...")
+            # print("\nLoaded data from database!\nTicker:\t\t", ticker,
+            #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+            #     "\nResult:\t\t", result)
             return model, last_update, result
 
         else:
