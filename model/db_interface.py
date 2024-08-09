@@ -69,12 +69,14 @@ if __name__ == '__main__':
         entry = input('Please make your selection: ')
 
         try:
+            #   1 - Outdate Models
             entry = int(entry)
             if entry == 1:
                 for ticker in dbi.get_tickers():
                     dbi.outdate(ticker)
                 print('Outdated all models.')
 
+            #   2 - Train Models by Epoch
             elif entry == 2:
                 epochs = int(input('How many epochs? '))
                 for ticker in dbi.get_tickers():
@@ -83,6 +85,7 @@ if __name__ == '__main__':
                     model.train(epochs)
                     print('\nFinished training!')
             
+            #   3 - Train Models to beat threshold (max 100 epochs)
             elif entry == 3:
                 epochs = 50
                 threshold = 0.0002
@@ -93,6 +96,7 @@ if __name__ == '__main__':
                     model.train(epochs, threshold=threshold)
                     print('\nFinished training!')
             
+            #   Finished
             if entry != 0:
                 input('Press any key to continue...')
 
