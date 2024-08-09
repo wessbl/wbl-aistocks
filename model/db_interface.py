@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from model.model import Model
 
 class DBInterface:
     # Path to database
@@ -51,11 +52,54 @@ class DBInterface:
         conn.close()
     #-------------------------------------------#
 
+
 if __name__ == '__main__':
+    # This can be run in the terminal from root directory:
+    #       python -m model.db_interface
+    # Note that epochs roughly equal minutes for 5 models on the AWS server
     dbi = DBInterface()
-    print("Tickers:\t", dbi.get_tickers())
-    print("Updated:\t", dbi.get_updated())
-    for tick in dbi.get_tickers():
-        dbi.outdate(tick)
-    print("Outdated all models.")
-    print("Updated:\t", dbi.get_updated())
+    
+    entry = -1
+    while entry != 0:
+        print('''\n*** ADMIN OPERATIONS MENU ***
+              1. Outdate all models
+              2. Train models - epochs
+              3. Train models - MSE Threshold
+              0. Exit''')
+        entry = input('Please make your selection: ')
+
+        try:
+            #   1 - Outdate Models
+            entry = int(entry)
+            if entry == 1:
+                for ticker in dbi.get_tickers():
+                    dbi.outdate(ticker)
+                print('Outdated all models.')
+
+            #   2 - Train Models by Epoch
+            elif entry == 2:
+                epochs = int(input('How many epochs? '))
+                for ticker in dbi.get_tickers():
+                    print('Training model for ' + ticker + '...')
+                    model = Model(ticker)
+                    model.train(epochs)
+                    print('\nFinished training!')
+            
+            #   3 - Train Models to beat threshold (max 100 epochs)
+            elif entry == 3:
+                epochs = 50
+                threshold = 0.0002
+                for ticker in dbi.get_tickers():
+                    print('Training model for ' + ticker + 
+                          ' until MSE surpasses ' + str(threshold) + '...')
+                    model = Model(ticker)
+                    model.train(epochs, threshold=threshold)
+                    print('\nFinished training!')
+            
+            #   Finished
+            if entry != 0:
+                input('Press any key to continue...')
+
+        except ValueError as e:
+            print('Invalid entry')
+            entry = -1

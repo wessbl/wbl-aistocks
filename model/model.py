@@ -1,12 +1,12 @@
 import os
 import sqlite3
 import matplotlib
+import os
+from model.lstm_model import LSTMModel
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from model.lstm_model import LSTMModel
-import db_interface as db
 from keras.models import load_model
 
 # A global collection of Models
@@ -73,14 +73,20 @@ class Model:
 
         # Create paths
         self._lstm_path = 'static/models/' + ticker + '.keras'
+        self._lstm_path = 'static/models/' + ticker + '.keras'
         self.img1_path = 'static/images/' + ticker + 'pred.png'
         self.img2_path = 'static/images/' + ticker + 'mirr.png'
 
         # First, try to load an existing model
         try:
-            model, self.recommendation, last_update, status = self._load(ticker)
-            self._lstm = LSTMModel(ticker, model, last_update, status)
-            self.update()
+            model, last_update, self.recommendation, status = self._load(ticker)
+            self._model = LSTMModel(ticker, model, last_update, status)
+
+            # Attempt update, generate new outputs if needed
+            updated, text = self._model.update_model()
+            print("\nModel Updated:\t", updated, "\nExplanation:\t", text)
+            if updated:
+                self.generate_output(self._model)
 
         except Exception as e:
             print(str(e))
@@ -89,16 +95,14 @@ class Model:
             # Train a new model on 10+ years of data
             self._lstm = LSTMModel(ticker)
             self.generate_output(self._lstm)
-            self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+        self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #-------------------------------#
-
-    #--- Function: Initiate LSTM Update ---#
-    def update(self):
-        updated, text = self._lstm.update_model()
-        print("\nModel Updated:\t", updated, "\nExplanation:\t", text)
-        if updated:
-            self.generate_output(self._lstm)
-            self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+    
+    #--- Function: Train model further ---#
+    def train(self, epochs, threshold=0):
+        self._lstm.train(epochs, mse_threshold=threshold)
+        self.generate_output(self._lstm)
+        self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #----------------------------------------------#
 
     #--- Function: Predict, generate imgs, save ---#
@@ -120,7 +124,7 @@ class Model:
         end = dividing_line + len(prediction)
         plt.figure(figsize=(6, 3))
         plt.title(f'Prediction - {model.ticker}')
-        plt.axvline(x=dividing_line, color='grey', linestyle=':', label='Last Close')
+        plt.axvline(x=dividing_line, color='grey', linestyle=':', label=model.last_update.strftime("%m/%d/%Y"))
         plt.plot(zoom_data, label="Actual Price")
         plt.plot(np.arange(dividing_line, end), prediction, label='Prediction')
         plt.legend()
@@ -193,11 +197,12 @@ class Model:
         conn.close()
 
         if row:
-            ticker, model_data, result, last_update, status = row
-            with open(self._lstm_path, 'wb') as file:
-                file.write(model_data)
-            model = load_model(self._lstm_path)
+            last_update_text, result = row
 
+            # Last update txt -> Timestamp
+            last_update = pd.Timestamp(last_update_text)
+
+            # Done
             print("\nLoaded data from database!\nTicker:\t\t", ticker,
                 "\nModel:\t\t", model, "\nLast Update:\t", last_update,
                 "\nResult:\t\t", result)
@@ -205,16 +210,17 @@ class Model:
         else:
             raise ValueError("Model could not be found in the database.")
 
-        if row:
-            result, status = row
-            # Done
-            print("\nLoaded data from database!\nTicker:\t\t", ticker,
-                "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-                "\nResult:\t\t", result)
-            return model, last_update, result
+        # if row:
+        #     result, status = row
+        #     # Done
+        #     print("\nModel for "+ticker+" loaded from database...")
+        #     # print("\nLoaded data from database!\nTicker:\t\t", ticker,
+        #     #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+        #     #     "\nResult:\t\t", result)
+        #     return model, last_update, result
 
-        else:
-            raise ValueError("Model could not be found in the database.")
+        # else:
+        #     raise ValueError("Model could not be found in the database.")
     #------------------------------#
 
     #--- Function: drop SQL tables ---#

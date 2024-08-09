@@ -2,11 +2,8 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from model.model import Models
 import os
 
-# Suppresses INFO and WARNING messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-# Turn off oneDNN custom operations
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# Dictionary of models ticker : Model
+models = {}
 
 app = Flask(__name__)
 
