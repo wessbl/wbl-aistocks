@@ -26,12 +26,13 @@ class LSTMModel:
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, ticker, model=None, last_update=None):
+    def __init__(self, ticker, model=None, last_update=None, status=None):
         # Check for valid model & attempt update
         if model is not None:
             self.ticker = ticker
             self._model = model
             self.last_update = last_update
+            self.status = status
             print("Last Update:\t", self.last_update)     #TODO remove debug print
             print("Model cached from loaded data.")
         else:

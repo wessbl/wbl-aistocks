@@ -32,6 +32,11 @@ def predict():
 
     try:
         model = Models.get(stock_symbol)
+
+        # Possible states are in_progress, pending, completed
+        #   in_progress:    Models are currently updating, front-end not affected
+        #   pending:        Updates are finished, front-end needs refresh
+        #   completed:      Updates are finished and front-end refreshed
         if model.status == 'pending':
             print('Model has been updated, refreshing now...')
             model = None

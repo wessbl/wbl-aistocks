@@ -78,8 +78,8 @@ class Model:
 
         # First, try to load an existing model
         try:
-            model, last_update, self.recommendation = self._load(ticker)
-            self._lstm = LSTMModel(ticker, model, last_update)
+            model, self.recommendation, last_update, status = self._load(ticker)
+            self._lstm = LSTMModel(ticker, model, last_update, status)
             self.update()
 
         except Exception as e:
@@ -188,27 +188,25 @@ class Model:
         cursor = conn.cursor()
 
         # Handle blob -> model
-        cursor.execute('''
-            SELECT model FROM models WHERE ticker = ?''',
-            (ticker,))
-        data = cursor.fetchone()[0]
-        with open(self._lstm_path, 'wb') as file:
-            file.write(data)
-        model = load_model(self._lstm_path)
-
-        # Get update & result
-        cursor.execute('''
-            SELECT last_update, result FROM models WHERE ticker = ?''',
-            (ticker,))
-        row = cursor.fetchone()
+        cursor.execute("SELECT * FROM models WHERE ticker = " + ticker)
+        row = cursor.fetchone()[0]
         conn.close()
 
         if row:
-            last_update_text, result = row
+            ticker, model_data, result, last_update, status = row
+            with open(self._lstm_path, 'wb') as file:
+                file.write(model_data)
+            model = load_model(self._lstm_path)
 
-            # Last update txt -> Timestamp
-            last_update = pd.Timestamp(last_update_text)
+            print("\nLoaded data from database!\nTicker:\t\t", ticker,
+                "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+                "\nResult:\t\t", result)
+            return model, result, last_update, status
+        else:
+            raise ValueError("Model could not be found in the database.")
 
+        if row:
+            result, status = row
             # Done
             print("\nLoaded data from database!\nTicker:\t\t", ticker,
                 "\nModel:\t\t", model, "\nLast Update:\t", last_update,
