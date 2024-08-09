@@ -32,6 +32,10 @@ def predict():
 
     try:
         model = Models.get(stock_symbol)
+        if model.status == 'pending':
+            print('Model has been updated, refreshing now...')
+            model = None
+            # TODO get info from model...
         
         return jsonify({
             'result': model.recommendation,

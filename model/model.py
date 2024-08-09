@@ -168,16 +168,16 @@ class Model:
             ticker TEXT PRIMARY KEY,
             model BLOB,
             result TEXT
-            status TEXT
             last_update TEXT,
+            status TEXT
             )
         ''')    # TODO ENSURE ALL DB INTERACTIONS FOLLOW NEW LAYOUT ABOVE!
 
         # Store the model in the database
         cursor.execute('''
-            INSERT OR REPLACE INTO models (ticker, model, last_update, result)
+            INSERT OR REPLACE INTO models (ticker, model, result, last_update, status)
             VALUES (?, ?, ?, ?)''',
-            (ticker, model_binary, last_update_txt, result))
+            (ticker, model, result, last_update, 'pending'))    # Pending: front-end needs to be refreshed
         conn.commit()
         conn.close()
     #------------------------------#
