@@ -167,10 +167,11 @@ class Model:
             CREATE TABLE IF NOT EXISTS models (
             ticker TEXT PRIMARY KEY,
             model BLOB,
-            last_update TEXT,
             result TEXT
+            status TEXT
+            last_update TEXT,
             )
-        ''')
+        ''')    # TODO ENSURE ALL DB INTERACTIONS FOLLOW NEW LAYOUT ABOVE!
 
         # Store the model in the database
         cursor.execute('''
@@ -226,4 +227,3 @@ class Model:
         conn.commit()
         conn.close()
     #------------------------------#
-
