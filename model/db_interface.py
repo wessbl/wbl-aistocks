@@ -1,18 +1,20 @@
 import sqlite3
 import os
+import pandas as pd
+from keras.models import load_model
 from model.model import Model
 
 class DBInterface:
     # Path to database
     _base_dir = os.path.dirname(os.path.abspath(__file__))
-    _db_path = os.path.join(base_dir, '../static/models/models.db')
+    _db_path = os.path.join(_base_dir, '../static/models/models.db')
     
     # Verify path
     if not os.path.exists(_db_path):
         raise FileNotFoundError(f"Database file not found at {_db_path}")
     
     #--- Function: Save to DB ---#
-    def _save(self, ticker, model, last_update, result=''):
+    def save(self, ticker, model, last_update, result=''):
         # Save model as file
         model._lstm.save(self._lstm_path)
 
@@ -46,40 +48,38 @@ class DBInterface:
     #------------------------------#
 
     #--- Function: Load from DB ---#
-    def _load(self, ticker):
+    def load(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
         # Handle blob -> model
-        cursor.execute("SELECT * FROM models WHERE ticker = " + ticker)
-        row = cursor.fetchone()[0]
+        cursor.execute('''SELECT model, result, last_update, status
+                       FROM models
+                       WHERE ticker = ?''',
+                       ticker)  # TODO may need this in parens?
+        row = cursor.fetchone() # TODO had [0]
+        print("DBInterface.load: row:\t", row)
+        print("DBInterface.load: row[0]:\t", row[0])
         conn.close()
 
         if row:
-            last_update_text, result = row
+            model_data, result, last_update_text, status = row
+
+            # Write model data as .keras file and load it
+            with open(self._lstm_path, 'wb') as file:
+                file.write(model_data)
+            model = load_model(self._lstm_path)
 
             # Last update txt -> Timestamp
             last_update = pd.Timestamp(last_update_text)
 
             # Done
-            print("\nLoaded data from database!\nTicker:\t\t", ticker,
-                "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-                "\nResult:\t\t", result)
+            print("\nLoaded data! Ticker:\t", ticker)
+                # "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+                # "\nResult:\t\t", result)
             return model, result, last_update, status
         else:
             raise ValueError("Model could not be found in the database.")
-
-        # if row:
-        #     result, status = row
-        #     # Done
-        #     print("\nModel for "+ticker+" loaded from database...")
-        #     # print("\nLoaded data from database!\nTicker:\t\t", ticker,
-        #     #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-        #     #     "\nResult:\t\t", result)
-        #     return model, last_update, result
-
-        # else:
-        #     raise ValueError("Model could not be found in the database.")
     #------------------------------#
 
     #--- Function: drop SQL tables ---#
@@ -118,6 +118,19 @@ class DBInterface:
             dates.append(row[0])
         return dates
     #-------------------------------------------#
+
+    #--- Function: Change the status ---#
+    def set_status(self, ticker, status):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE models
+            SET status = ?
+            WHERE ticker = ?''',
+            (status, ticker))
+        conn.commit()
+        conn.close()
+    #-----------------------------------#
 
     #--- Function: set stock as outdated ---#
     def outdate(self, ticker):

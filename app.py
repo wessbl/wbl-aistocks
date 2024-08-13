@@ -42,7 +42,7 @@ def predict():
             print('Model has been updated, refreshing now...'),
             models.pop(ticker)
             models[ticker] = Model(ticker)
-            model.completed()
+            model.update_completed()
             print(' done.')
         
         model = models[ticker]
@@ -97,8 +97,6 @@ if __name__ == '__main__':
     # TODO this can be removed after update overhaul is deployed
     check_columns()
 
-    # TODO delete this
-    # Models.populate()
     app.run(debug=False)
 #---------------------#
 

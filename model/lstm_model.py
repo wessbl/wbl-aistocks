@@ -62,7 +62,7 @@ class LSTMModel:
     def preprocess(self):
         # Get all data from start through last close (yf excludes end date)
         today = pd.Timestamp.now().date()
-        if today == self.last_close():
+        if today >= self.last_close():
             df = yf.download(self.ticker, start=self._start_date)
         else: 
             df = yf.download(self.ticker, start=self._start_date, end=today)
@@ -158,35 +158,6 @@ class LSTMModel:
         yesterday = yesterday.to_pydatetime().date()
         return yesterday
     #---------------------------------------------------#
-
-    #--- Function: Train the model on the latest closing price ---#
-    def update_model(self):
-        # Get the current time & day
-        now = datetime.now(pytz.timezone('US/Eastern'))
-        today = now.date()
-
-        # If the market is closed and we have already updated, return
-        market_close_time = now.replace(hour=16, minute=0, second=0)
-        market_closed = market_close_time <= now
-        if market_closed & (self.last_update.date() == today):
-            return False, "Model is already updated on today's market close."
-
-        # Get 'yesterday': the last market close before today
-        yesterday = self.last_close()
-
-        # If the market isn't closed but last update was yesterday, return
-        if (not market_closed) & (self.last_update.date() == yesterday):
-            return False, "Model is already updated to previous market close."
-
-        # Update model with all close prices from original start date
-        if (not market_closed):
-            today = yesterday
-        self.preprocess()
-        self._model.fit(self.X, self.y, epochs=self._update_epoch, batch_size=64)
-        self.last_update = self.last_close()
-        dates = 'Updated model: ' + self._start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
-        return True, dates
-    #-------------------------------------------------------------#
 
     #--- Function: Train the model on the latest closing price ---#
     def train(self, epochs, mse_threshold=0):

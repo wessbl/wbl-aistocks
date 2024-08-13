@@ -2,7 +2,6 @@ import schedule
 import time
 import pytz
 from datetime import datetime
-import yfinance as yf
 from model.db_interface import DBInterface
 from model.model import Model
 
@@ -14,10 +13,8 @@ def update_models():
 
     for ticker in tickers:
         print(f"Updating model for {ticker}...")
-
         model = Model(ticker)
-        model.update()
-        
+        model.train()
         print(f"Model for {ticker} updated.")
 
     print("All models updated.")
