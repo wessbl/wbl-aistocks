@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from model.model import Models
+from model.model import Model
 import os
 
 # Dictionary of models ticker : Model
@@ -25,19 +25,27 @@ def predict():
     if 'stock_symbol' not in data:
         return jsonify({'error': 'No stock symbol provided'}), 400
 
-    stock_symbol = data['stock_symbol']
+    ticker = data['stock_symbol']
 
     try:
-        model = Models.get(stock_symbol)
+        model = models.get(ticker)
+        if model is None:
+            models[ticker] = Model(ticker)
+            model = models[ticker]
 
         # Possible states are in_progress, pending, completed
-        #   in_progress:    Models are currently updating, front-end not affected
-        #   pending:        Updates are finished, front-end needs refresh
-        #   completed:      Updates are finished and front-end refreshed
+        #   |   STATUS      |   BACK END        |   FRONT END       |
+        #   | in_progress   |  Updating         |   Not affected    |
+        #   | pending       |  Update finished  |   Needs refresh   |
+        #   | completed     |  Update finished  |   Refreshed       |
         if model.status == 'pending':
-            print('Model has been updated, refreshing now...')
-            model = None
-            # TODO get info from model...
+            print('Model has been updated, refreshing now...'),
+            models.pop(ticker)
+            models[ticker] = Model(ticker)
+            model.completed()
+            print(' done.')
+        
+        model = models[ticker]
         
         return jsonify({
             'result': model.recommendation,
@@ -89,7 +97,8 @@ if __name__ == '__main__':
     # TODO this can be removed after update overhaul is deployed
     check_columns()
 
-    Models.populate()
+    # TODO delete this
+    # Models.populate()
     app.run(debug=False)
 #---------------------#
 

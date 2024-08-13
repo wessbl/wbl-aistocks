@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from keras.models import load_model
+from db_interface import DBInterface
 
-# A global collection of Models
+# A global collection of Models             TODO delete
 class Models:
     models = {}
     _base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -57,14 +58,15 @@ class Model:
     # LSTM Vars
     ticker = None
     recommendation = None
+    status = None
     _lstm = None
     _prediction = None
     _mirror = None
+    _db = DBInterface()
 
     # Paths
     img1_path = None
     img2_path = None
-    _db_path = 'static/models/models.db'
     _lstm_path = None
     
     #--- Constructor ---#
@@ -79,7 +81,7 @@ class Model:
 
         # First, try to load an existing model
         try:
-            model, last_update, self.recommendation, status = self._load(ticker)
+            model, last_update, self.recommendation, status = db.load(ticker)
             self._model = LSTMModel(ticker, model, last_update, status)
 
             # Attempt update, generate new outputs if needed
@@ -98,13 +100,6 @@ class Model:
         self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #-------------------------------#
     
-    #--- Function: Train model further ---#
-    def train(self, epochs, threshold=0):
-        self._lstm.train(epochs, mse_threshold=threshold)
-        self.generate_output(self._lstm)
-        self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
-    #----------------------------------------------#
-
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self, model):
         # Make prediction (data) & recommendation (text)
@@ -152,82 +147,9 @@ class Model:
         plt.close()
     #-----------------------------------------------#
 
-    #--- Function: Save to DB ---#
-    def _save(self, ticker, model, last_update, result=''):
-        # Save model as file
-        model._lstm.save(self._lstm_path)
-
-        # Read the model file as binary
-        with open(self._lstm_path, 'rb') as f:
-            model_binary = f.read()
-
-        # Get text version of last_update
-        last_update_txt = last_update.strftime("%Y-%m-%d")
-
-        # Database connection
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS models (
-            ticker TEXT PRIMARY KEY,
-            model BLOB,
-            result TEXT
-            last_update TEXT,
-            status TEXT
-            )
-        ''')    # TODO ENSURE ALL DB INTERACTIONS FOLLOW NEW LAYOUT ABOVE!
-
-        # Store the model in the database
-        cursor.execute('''
-            INSERT OR REPLACE INTO models (ticker, model, result, last_update, status)
-            VALUES (?, ?, ?, ?)''',
-            (ticker, model, result, last_update, 'pending'))    # Pending: front-end needs to be refreshed
-        conn.commit()
-        conn.close()
-    #------------------------------#
-
-    #--- Function: Load from DB ---#
-    def _load(self, ticker):
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-
-        # Handle blob -> model
-        cursor.execute("SELECT * FROM models WHERE ticker = " + ticker)
-        row = cursor.fetchone()[0]
-        conn.close()
-
-        if row:
-            last_update_text, result = row
-
-            # Last update txt -> Timestamp
-            last_update = pd.Timestamp(last_update_text)
-
-            # Done
-            print("\nLoaded data from database!\nTicker:\t\t", ticker,
-                "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-                "\nResult:\t\t", result)
-            return model, result, last_update, status
-        else:
-            raise ValueError("Model could not be found in the database.")
-
-        # if row:
-        #     result, status = row
-        #     # Done
-        #     print("\nModel for "+ticker+" loaded from database...")
-        #     # print("\nLoaded data from database!\nTicker:\t\t", ticker,
-        #     #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-        #     #     "\nResult:\t\t", result)
-        #     return model, last_update, result
-
-        # else:
-        #     raise ValueError("Model could not be found in the database.")
-    #------------------------------#
-
-    #--- Function: drop SQL tables ---#
-    def drop_table(self):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('DROP TABLE IF EXISTS models')
-        conn.commit()
-        conn.close()
-    #------------------------------#
+    #--- Function: Train model further ---#
+    def train(self, epochs, threshold=0):
+        self._lstm.train(epochs, mse_threshold=threshold)
+        self.generate_output(self._lstm)
+        self._save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+    #----------------------------------------------#
