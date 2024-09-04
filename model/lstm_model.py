@@ -72,10 +72,10 @@ class LSTMModel:
         orig_data = df['Close'].values
         self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
         self.scaler = MinMaxScaler(feature_range=(0,1))
-        self.scaled_data = self.scaler.fit_transform(self.orig_data)
+        self._scaled_data = self.scaler.fit_transform(self.orig_data)
 
         # Create Datasets to feed LSTM
-        self.X, self.y = self.create_dataset(self.scaled_data)
+        self.X, self.y = self.create_dataset(self._scaled_data)
         self.X = self.X.reshape(self.X.shape[0], self.X.shape[1], 1)
     #---------------------------------------------#
 
@@ -109,11 +109,11 @@ class LSTMModel:
     #--- Function: Predict price over future given days ---#
     def make_prediction(self, days=_prediction_len):
         # Make sure we have data
-        if self.scaled_data is None:
-            self.preprocess(yf.download(self.ticker, start=self._start_date, end=self.last_update))
+        if self._scaled_data is None:
+            self.preprocess()
         
         # Prepare enough data for one prediction
-        multi_day_data = self.scaled_data[-self.time_step:]
+        multi_day_data = self._scaled_data[-self.time_step:]
         X_predict = multi_day_data[:self.time_step].reshape(1, self.time_step, 1)
 
         # Create an array with the first index at last known close price

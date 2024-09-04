@@ -7,18 +7,24 @@ class DBInterface:
     # Path to database
     _base_dir = os.path.dirname(os.path.abspath(__file__))
     _db_path = os.path.join(_base_dir, '../static/models/models.db')
+    _lstm_path = os.path.join(_base_dir, '../static/models/')
     
     # Verify path
     if not os.path.exists(_db_path):
         raise FileNotFoundError(f"Database file not found at {_db_path}")
     
+    #--- Function: Get path to LSTM file ---#
+    def get_lstm_path(self, ticker):
+        return os.path.join(self._lstm_path, ticker + '.keras')
+    
     #--- Function: Save to DB ---#
     def save(self, ticker, model, last_update, result=''):
         # Save model as file
-        model.save(self._lstm_path)
+        path = self.get_lstm_path(ticker)
+        model._model.save(path)
 
         # Read the model file as binary
-        with open(self._lstm_path, 'rb') as f:
+        with open(path, 'rb') as f:
             model_binary = f.read()
 
         # Get text version of last_update
@@ -35,13 +41,13 @@ class DBInterface:
             last_update TEXT,
             status TEXT
             )
-        ''')    # TODO ENSURE ALL DB INTERACTIONS FOLLOW NEW LAYOUT ABOVE!
+        ''')
 
         # Store the model in the database
         cursor.execute('''
             INSERT OR REPLACE INTO models (ticker, model, result, last_update, status)
-            VALUES (?, ?, ?, ?)''',
-            (ticker, model, result, last_update, 'pending'))    # Pending: front-end needs to be refreshed
+            VALUES (?, ?, ?, ?, ?)''',
+            (ticker, model_binary, result, last_update_txt, 'pending'))    # Pending: front-end needs to be refreshed
         conn.commit()
         conn.close()
     #------------------------------#
@@ -56,19 +62,18 @@ class DBInterface:
                        SELECT model, result, last_update, status
                        FROM models
                        WHERE ticker = ?''',
-                       ticker)  # TODO may need this in parens?
-        row = cursor.fetchone() # TODO had [0]
-        print("DBInterface.load: row:\t", row)
-        print("DBInterface.load: row[0]:\t", row[0])
+                       (ticker,))  # TODO may need this in parens?
+        row = cursor.fetchone()
         conn.close()
 
         if row:
             model_data, result, last_update_text, status = row
 
             # Write model data as .keras file and load it
-            with open(self._lstm_path, 'wb') as file:
+            path = self.get_lstm_path(ticker)
+            with open(path, 'wb') as file:
                 file.write(model_data)
-            model = load_model(self._lstm_path)
+            model = load_model(path)
 
             # Last update txt -> Timestamp
             last_update = pd.Timestamp(last_update_text)
