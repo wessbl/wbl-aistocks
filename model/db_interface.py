@@ -2,7 +2,6 @@ import sqlite3
 import os
 import pandas as pd
 from keras.models import load_model
-from model.model import Model
 
 class DBInterface:
     # Path to database
@@ -16,7 +15,7 @@ class DBInterface:
     #--- Function: Save to DB ---#
     def save(self, ticker, model, last_update, result=''):
         # Save model as file
-        model._lstm.save(self._lstm_path)
+        model.save(self._lstm_path)
 
         # Read the model file as binary
         with open(self._lstm_path, 'rb') as f:
@@ -53,7 +52,8 @@ class DBInterface:
         cursor = conn.cursor()
 
         # Handle blob -> model
-        cursor.execute('''SELECT model, result, last_update, status
+        cursor.execute('''
+                       SELECT model, result, last_update, status
                        FROM models
                        WHERE ticker = ?''',
                        ticker)  # TODO may need this in parens?
@@ -146,53 +146,54 @@ class DBInterface:
     #-------------------------------------------#
 
 
-if __name__ == '__main__':
-    # This can be run in the terminal from root directory:
-    #       python -m model.db_interface
-    # Note that epochs roughly equal minutes for 5 models on the AWS server
-    dbi = DBInterface()
+# TODO Removed this section due to circular import with Model
+# if __name__ == '__main__':
+#     # This can be run in the terminal from root directory:
+#     #       python -m model.db_interface
+#     # Note that epochs roughly equal minutes for 5 models on the AWS server
+#     dbi = DBInterface()
     
-    entry = -1
-    while entry != 0:
-        print('''\n*** ADMIN OPERATIONS MENU ***
-              1. Outdate all models
-              2. Train models - epochs
-              3. Train models - MSE Threshold
-              0. Exit''')
-        entry = input('Please make your selection: ')
+#     entry = -1
+#     while entry != 0:
+#         print('''\n*** ADMIN OPERATIONS MENU ***
+#               1. Outdate all models
+#               2. Train models - epochs
+#               3. Train models - MSE Threshold
+#               0. Exit''')
+#         entry = input('Please make your selection: ')
 
-        try:
-            #   1 - Outdate Models
-            entry = int(entry)
-            if entry == 1:
-                for ticker in dbi.get_tickers():
-                    dbi.outdate(ticker)
-                print('Outdated all models.')
+#         try:
+#             #   1 - Outdate Models
+#             entry = int(entry)
+#             if entry == 1:
+#                 for ticker in dbi.get_tickers():
+#                     dbi.outdate(ticker)
+#                 print('Outdated all models.')
 
-            #   2 - Train Models by Epoch
-            elif entry == 2:
-                epochs = int(input('How many epochs? '))
-                for ticker in dbi.get_tickers():
-                    print('Training model for ' + ticker + '...')
-                    model = Model(ticker)
-                    model.train(epochs)
-                    print('\nFinished training!')
+#             #   2 - Train Models by Epoch
+#             elif entry == 2:
+#                 epochs = int(input('How many epochs? '))
+#                 for ticker in dbi.get_tickers():
+#                     print('Training model for ' + ticker + '...')
+#                     model = Model(ticker)
+#                     model.train(epochs)
+#                     print('\nFinished training!')
             
-            #   3 - Train Models to beat threshold (max 100 epochs)
-            elif entry == 3:
-                epochs = 50
-                threshold = 0.0002
-                for ticker in dbi.get_tickers():
-                    print('Training model for ' + ticker + 
-                          ' until MSE surpasses ' + str(threshold) + '...')
-                    model = Model(ticker)
-                    model.train(epochs, threshold=threshold)
-                    print('\nFinished training!')
+#             #   3 - Train Models to beat threshold (max 100 epochs)
+#             elif entry == 3:
+#                 epochs = 50
+#                 threshold = 0.0002
+#                 for ticker in dbi.get_tickers():
+#                     print('Training model for ' + ticker + 
+#                           ' until MSE surpasses ' + str(threshold) + '...')
+#                     model = Model(ticker)
+#                     model.train(epochs, threshold=threshold)
+#                     print('\nFinished training!')
             
-            #   Finished
-            if entry != 0:
-                input('Press any key to continue...')
+#             #   Finished
+#             if entry != 0:
+#                 input('Press any key to continue...')
 
-        except ValueError as e:
-            print('Invalid entry')
-            entry = -1
+#         except ValueError as e:
+#             print('Invalid entry')
+#             entry = -1

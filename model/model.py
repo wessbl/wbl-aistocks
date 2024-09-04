@@ -1,9 +1,9 @@
 import matplotlib
-from model.lstm_model import LSTMModel
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-from db_interface import DBInterface
+from model.lstm_model import LSTMModel
+from model.db_interface import DBInterface
 
 # A wrapper class for LSTMModels that generates images
 class Model:
@@ -48,14 +48,13 @@ class Model:
     
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self):
-        global _lstm
         # Make prediction (data) & recommendation (text)
-        prediction = _lstm.make_prediction()
-        self.recommendation = _lstm.buy_or_sell(prediction)
+        prediction = self._lstm.make_prediction()
+        self.recommendation = self._lstm.buy_or_sell(prediction)
         
-        mirror = _lstm.mirror_data()
-        self._generate_prediction(_lstm, prediction)
-        self._generate_mirror(_lstm, mirror)
+        mirror = self._lstm.mirror_data()
+        self._generate_prediction(self._lstm, prediction)
+        self._generate_mirror(self._lstm, mirror)
     #----------------------------------------------#
 
     #--- Function: Create prediction image ---#
