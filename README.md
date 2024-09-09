@@ -1,4 +1,4 @@
-# AIStockHelper
+# FutureStock AI
 
 A Flask web app that predicts future stock prices.
 

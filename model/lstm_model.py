@@ -228,9 +228,9 @@ class LSTMModel:
         if last_price <= last_predicted:
             percent = percent - 100
             percent = str(f"{percent:.2f}")
-            return "Buy: AIStockHelper says this stock will go up in value by " + percent + "%."
+            return "Buy: FutureStock AI says this stock will go up in value by " + percent + "%."
         else:
             percent = 100 - percent
             percent = str(f"{percent:.2f}")
-            return "Sell: AIStockHelper says this stock will go down in value by " + percent + "%."
+            return "Sell: FutureStock AI says this stock will go down in value by " + percent + "%."
     #---------------------------------------------------------#
