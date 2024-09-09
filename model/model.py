@@ -43,8 +43,8 @@ class Model:
             print("Creating new model...")
             # Train a new model on 10+ years of data
             self._lstm = LSTMModel(ticker)
-        self.generate_output()
         self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+        self._set_status(2) # TODO debug statement, delete
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
@@ -108,15 +108,16 @@ class Model:
 
     #--- Function: Change status ---#
     def _set_status(self, status_int):
-        status = ''
+        temp_status = ''
         if status_int == 1:
-            status = 'in_progress'
+            temp_status = 'in_progress'
         elif status_int == 2:
-            status = 'pending'
+            temp_status = 'pending'
         elif status_int == 3:
-            status = 'completed'
+            temp_status = 'completed'
         
-        self._db.set_status(self.ticker, status)
+        self._db.set_status(self.ticker, temp_status)
+        self.status = temp_status
     #----------------------------#
 
     #--- Function: Perform a daily update ---#

@@ -42,10 +42,9 @@ def predict():
             print('Model has been updated, refreshing now...'),
             models.pop(ticker)
             models[ticker] = Model(ticker)
+            model = models[ticker]
             model.update_completed()
-            print(' done.')
-        
-        model = models[ticker]
+            print('...done. Status set to ', model.status)
         
         return jsonify({
             'result': model.recommendation,

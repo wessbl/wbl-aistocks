@@ -39,8 +39,7 @@ class LSTMModel:
             self._model = model
             self.last_update = last_update
             self.status = status
-            print("Last Update:\t", self.last_update)     #TODO remove debug print
-            print("Model cached from loaded data.")
+            print("Model loaded.")
         else:
             # Get data & train brand-new model
             self.ticker = ticker
