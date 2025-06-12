@@ -34,7 +34,8 @@ mdurl==0.1.2
 ml-dtypes==0.3.2
 multitasking==0.0.11
 namex==0.0.8
-numpy==1.26.4
+numpy<2
+	#was numpy==1.26.4, changed 6/11/25
 opt-einsum==3.3.0
 optree==0.11.0
 packaging==24.1
@@ -62,7 +63,7 @@ soupsieve==2.5
 tensorboard==2.16.2
 tensorboard-data-server==0.7.2
 tensorflow==2.16.1
-tensorflow-intel==0.0.1
+#tensorflow-intel==0.0.1, changed 6/11/2025
 	#was 2.16.1
 termcolor==2.4.0
 threadpoolctl==3.5.0
@@ -73,4 +74,5 @@ webencodings==0.5.1
 Werkzeug==3.0.3
 wheel==0.43.0
 wrapt==1.16.0
-yfinance==0.2.40
+yfinance==0.2.61
+	# was 0.2.40, changed 6/11/25

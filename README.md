@@ -12,16 +12,18 @@ When a user selects a stock ticker, the application loads the model trained on t
 
 ### Dependencies
 
-* Python
+* python3 to create virtual environments and run the program
 * Flask, yfinance, sqlite3, matplotlib, numpy, pandas, tensorflow, keras, sklearn
 * The full list of requirements is in the requirements.txt file, along with the versions for each package. This makes installation much easier from a terminal.
 
 ### Installing
 
-* Place files/folders in the desired directory
-* Install Python if needed
-* In a terminal, get to the directory and install dependencies using the requirements.txt file, for example:
+* Install git, python3, python3-pip, pip3 as needed
+* Clone the project to your desired directory
+* Create the virtual environment. Go into the project folder and run:
 ``` 
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
