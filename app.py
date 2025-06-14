@@ -2,6 +2,10 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from model.model import Model
 import os
 
+# Keep some logs B)
+import logging
+logging.basicConfig(filename='flask.log', level=logging.DEBUG)
+
 # Dictionary of models ticker : Model
 models = {}
 

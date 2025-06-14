@@ -3,6 +3,7 @@
 *.keras
 *.swp
 *.pyc
+*.log
 start_gunicorn.sh
 venv/
 static/
