@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from model.model import Model
 import os
+import time
 
 # Keep some logs B)
 import logging
@@ -25,24 +26,57 @@ def download_file(filename):
 # 'Predict' button clicked
 @app.route('/predict', methods=['POST'])
 def predict():
-    global models
+    print('\nPredict button clicked')
+    # Check if the request contains JSON data)
     data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
     if 'stock_symbol' not in data:
         return jsonify({'error': 'No stock symbol provided'}), 400
 
-    stock_symbol = data['stock_symbol']
+    ticker = data['stock_symbol']
 
     try:
-        model = models.get(stock_symbol)
+        model = models.get(ticker)
         if model is None:
-            models[stock_symbol] = Model(stock_symbol)
-            model = models.get(stock_symbol)
+            models[ticker] = Model(ticker)
+            model = models[ticker]
         
+        # Possible states are in_progress, pending, completed
+        #   |   STATUS      |     FRONT END     |     BACK END      |
+        #   | in_progress   |   Not affected    |  Updating         |
+        #   | pending       |   Needs refresh   |  Update finished  |
+        #   | completed     |   Refreshed       |  Update finished  |
+        status = model.get_status() # Checks DB
+        recommendation = model.recommendation
+
+        if status == 'in_progress':
+            print('Model is currently being updated')
+            # If the model is in progress, we return the last recommendation
+            recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
+        
+        elif status == 'pending':
+            print('Model has been updated, refreshing now...'),
+            models.pop(ticker)
+            models[ticker] = Model(ticker)
+            model = models[ticker]
+            model.update_completed()
+            recommendation = model.recommendation
+            print('...done. Status set to ', model.get_status())
+
+        elif status == 'completed':
+            print('Model is up-to-date.')
+
+        else: raise ValueError(f"Unknown status: {status}")
+
+        print(recommendation) # TODO debug print
+                
         return jsonify({
-            'result': model.recommendation,
-            'img1_path': model.img1_path.replace('\\', '/'),
-            'img2_path': model.img2_path.replace('\\', '/')
+            'result': recommendation,
+            'img1_path': f"{model.img1_path.replace('\\', '/')}?t={int(time.time())}",
+            'img2_path': f"{model.img2_path.replace('\\', '/')}?t={int(time.time())}"
         })
+    
     except ConnectionError as e:
         model = None
         return jsonify({'result': 'Connection error occurred, likely issue with yfinance.'})
@@ -51,16 +85,32 @@ def predict():
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
 
-#--- Function: Train FAANG models ---#
-def train_models():
-    global models
-    tickers = ['AAPL', 'META', 'AMZN', 'NFLX', 'GOOGL']
-    for ticker in tickers:
-        models[ticker] = Model(ticker)
-#------------------------------------#
+#   TODO This function can be removed after update overhaul is deployed
+#--- Function: Ensure new column method is in place ---#
+def check_columns():
+    # Connect
+    import sqlite3
+    db_path = 'static/models/models.db'
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Check if new column exists
+    cursor.execute(f'PRAGMA table_info(models)')
+    columns = [info[1] for info in cursor.fetchall()]
+    if 'status' not in columns:
+        print('New column must be added to models.db, updating now...')
+        cursor.execute('''
+            ALTER TABLE models ADD COLUMN status TEXT DEFAULT 'pending';
+            ''')
+        print('Table has been updated!')
+    else:
+        print('Table structure has been updated, consider removing old methods...')
+
+#--------------------------------#
 
 #--- First Boot ---#
 if __name__ == '__main__':
+    print('Starting Flask app...')
     # Create dirs
     img_dir = 'static/images'
     if not os.path.exists(img_dir):
@@ -69,11 +119,9 @@ if __name__ == '__main__':
     mdl_dir = 'static/models/'
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
+    
+    # TODO this can be removed after update overhaul is deployed
+    check_columns()
 
-    # Train 5 models
-    db_path = 'static/models/models.db'
-    if not os.path.exists(db_path):
-        train_models()
     app.run(debug=False)
 #---------------------#
-

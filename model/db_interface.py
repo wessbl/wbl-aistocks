@@ -1,15 +1,101 @@
 import sqlite3
 import os
-from model.model import Model
+import pandas as pd
+from keras.models import load_model
 
 class DBInterface:
     # Path to database
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    _db_path = os.path.join(base_dir, '../static/models/models.db')
+    _base_dir = os.path.dirname(os.path.abspath(__file__))
+    _db_path = os.path.join(_base_dir, '../static/models/models.db')
+    _lstm_path = os.path.join(_base_dir, '../static/models/')
     
     # Verify path
     if not os.path.exists(_db_path):
         raise FileNotFoundError(f"Database file not found at {_db_path}")
+    
+    #--- Function: Get path to LSTM file ---#
+    def get_lstm_path(self, ticker):
+        return os.path.join(self._lstm_path, ticker + '.keras')
+    
+    #--- Function: Save to DB ---#
+    def save(self, ticker, model, last_update, result=''):
+        # Save model as file
+        path = self.get_lstm_path(ticker)
+        model._model.save(path)
+
+        # Read the model file as binary
+        with open(path, 'rb') as f:
+            model_binary = f.read()
+
+        # Get text version of last_update
+        last_update_txt = last_update.strftime("%Y-%m-%d")
+
+        # Database connection
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS models (
+            ticker TEXT PRIMARY KEY,
+            model BLOB,
+            result TEXT
+            last_update TEXT,
+            status TEXT
+            )
+        ''')
+
+        # Store the model in the database
+        cursor.execute('''
+            INSERT OR REPLACE INTO models (ticker, model, result, last_update, status)
+            VALUES (?, ?, ?, ?, ?)''',
+            (ticker, model_binary, result, last_update_txt, 'pending'))    # Pending: front-end needs to be refreshed
+        conn.commit()
+        conn.close()
+    #------------------------------#
+
+    #--- Function: Load from DB ---#
+    def load(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+
+        # Handle blob -> model
+        cursor.execute('''
+                       SELECT model, result, last_update, status
+                       FROM models
+                       WHERE ticker = ?''',
+                       (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            model_data, result, last_update_text, status = row
+
+            # Write model data as .keras file and load it
+            path = self.get_lstm_path(ticker)
+            with open(path, 'wb') as file:
+                file.write(model_data)
+            model = load_model(path)
+
+            # Last update txt -> Timestamp
+            last_update = pd.Timestamp(last_update_text)
+
+            # Done
+            print("Loaded data! Ticker:\t", ticker)
+            # print("\nLoaded data! Ticker:\t", ticker,
+            #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+            #     "\nResult:\t\t", result, "\nStatus:\t\t", status)
+            return model, result, last_update, status
+        else:
+            raise ValueError("Model could not be found in the database.")
+    #------------------------------#
+
+    #--- Function: drop SQL tables ---#
+    def drop_table(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DROP TABLE IF EXISTS models')
+        conn.commit()
+        conn.close()
+    #------------------------------#
 
     #--- Function: Get all the tickers in db ---#
     def get_tickers(self):
@@ -39,13 +125,39 @@ class DBInterface:
         return dates
     #-------------------------------------------#
 
+    #--- Function: Change the status ---#
+    def set_status(self, ticker, status):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE models
+            SET status = ?
+            WHERE ticker = ?''',
+            (status, ticker))
+        conn.commit()
+        conn.close()
+    #-----------------------------------#
+
+    #--- Function: Check the status ---#
+    def get_status(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT status FROM models WHERE ticker = ?', (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]   # Return the status as a string
+        else:
+            raise ValueError("Ticker not found in the database.")
+    #-----------------------------------#
+
     #--- Function: set stock as outdated ---#
     def outdate(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE models 
-            SET last_update = ? 
+            SET last_update = ?
             WHERE ticker = ?''',
             ('2024-01-01', ticker))
         conn.commit()
@@ -53,6 +165,7 @@ class DBInterface:
     #-------------------------------------------#
 
 
+# TODO Removed this section due to circular import with Model
 if __name__ == '__main__':
     # This can be run in the terminal from root directory:
     #       python -m model.db_interface

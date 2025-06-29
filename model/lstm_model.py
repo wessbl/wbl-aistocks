@@ -32,14 +32,14 @@ class LSTMModel:
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, ticker, model=None, last_update=None):
+    def __init__(self, ticker, model=None, last_update=None, status=None):
         # Check for valid model & attempt update
         if model is not None:
             self.ticker = ticker
             self._model = model
             self.last_update = last_update
-            print("Last Update:\t", self.last_update)     #TODO remove debug print
-            print("Model cached from loaded data.")
+            self.status = status
+            print("Model loaded.")
         else:
             # Get data & train brand-new model
             self.ticker = ticker
@@ -61,7 +61,7 @@ class LSTMModel:
     def preprocess(self):
         # Get all data from start through last close (yf excludes end date)
         today = pd.Timestamp.now().date()
-        if today == self.last_close():
+        if today >= self.last_close():
             df = yf.download(self.ticker, start=self._start_date)
         else: 
             df = yf.download(self.ticker, start=self._start_date, end=today)
@@ -71,10 +71,10 @@ class LSTMModel:
         orig_data = df['Close'].values
         self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
         self.scaler = MinMaxScaler(feature_range=(0,1))
-        self.scaled_data = self.scaler.fit_transform(self.orig_data)
+        self._scaled_data = self.scaler.fit_transform(self.orig_data)
 
         # Create Datasets to feed LSTM
-        self.X, self.y = self.create_dataset(self.scaled_data)
+        self.X, self.y = self.create_dataset(self._scaled_data)
         self.X = self.X.reshape(self.X.shape[0], self.X.shape[1], 1)
     #---------------------------------------------#
 
@@ -108,11 +108,11 @@ class LSTMModel:
     #--- Function: Predict price over future given days ---#
     def make_prediction(self, days=_prediction_len):
         # Make sure we have data
-        if self.scaled_data is None:
-            self.preprocess(yf.download(self.ticker, start=self._start_date, end=self.last_update))
+        if self._scaled_data is None:
+            self.preprocess()
         
         # Prepare enough data for one prediction
-        multi_day_data = self.scaled_data[-self.time_step:]
+        multi_day_data = self._scaled_data[-self.time_step:]
         X_predict = multi_day_data[:self.time_step].reshape(1, self.time_step, 1)
 
         # Create an array with the first index at last known close price
@@ -159,36 +159,6 @@ class LSTMModel:
     #---------------------------------------------------#
 
     #--- Function: Train the model on the latest closing price ---#
-    def update_model(self):
-        global progress
-        # Get the current time & day
-        now = datetime.now(pytz.timezone('US/Eastern'))
-        today = now.date()
-
-        # If the market is closed and we have already updated, return
-        market_close_time = now.replace(hour=16, minute=0, second=0)
-        market_closed = market_close_time <= now
-        if market_closed & (self.last_update.date() == today):
-            return False, "Model is already updated on today's market close."
-
-        # Get 'yesterday': the last market close before today
-        yesterday = self.last_close()
-
-        # If the market isn't closed but last update was yesterday, return
-        if (not market_closed) & (self.last_update.date() == yesterday):
-            return False, "Model is already updated to previous market close."
-
-        # Update model with all close prices from original start date
-        if (not market_closed):
-            today = yesterday
-        self.preprocess()
-        self._model.fit(self.X, self.y, epochs=self._update_epoch, batch_size=64)
-        self.last_update = self.last_close()
-        dates = 'Updated model: ' + self._start_date + ' through ' + self.last_update.strftime("%Y-%m-%d") + '.'
-        return True, dates
-    #-------------------------------------------------------------#
-
-    #--- Function: Train the model on the latest closing price ---#
     def train(self, epochs, mse_threshold=0):
         global model
         # model.compile(optimizer='adam', loss='mse', metrics=[MeanSquaredError()])
@@ -216,7 +186,6 @@ class LSTMModel:
                     print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
 
         self.last_update = self.last_close()
-        print('Trained model for ' + self.ticker + ' ' + str(epochs) + ' times.')
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#
@@ -228,9 +197,9 @@ class LSTMModel:
         if last_price <= last_predicted:
             percent = percent - 100
             percent = str(f"{percent:.2f}")
-            return "Buy: FutureStock AI says this stock will go up in value by " + percent + "%."
+            return "<b>Buy!</b><br>FutureStock AI says this stock will go up in value by " + percent + "%."
         else:
             percent = 100 - percent
             percent = str(f"{percent:.2f}")
-            return "Sell: FutureStock AI says this stock will go down in value by " + percent + "%."
+            return "<b>Sell!</b><br>FutureStock AI says this stock will go down in value by " + percent + "%."
     #---------------------------------------------------------#
