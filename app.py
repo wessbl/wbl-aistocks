@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from model.model import Model
 import os
+import time
 
 # Dictionary of models ticker : Model
 models = {}
@@ -21,7 +22,11 @@ def download_file(filename):
 # 'Predict' button clicked
 @app.route('/predict', methods=['POST'])
 def predict():
+    print('\nPredict button clicked')
+    # Check if the request contains JSON data)
     data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
     if 'stock_symbol' not in data:
         return jsonify({'error': 'No stock symbol provided'}), 400
 
@@ -32,25 +37,38 @@ def predict():
         if model is None:
             models[ticker] = Model(ticker)
             model = models[ticker]
-
+        
         # Possible states are in_progress, pending, completed
-        #   |   STATUS      |   BACK END        |   FRONT END       |
-        #   | in_progress   |  Updating         |   Not affected    |
-        #   | pending       |  Update finished  |   Needs refresh   |
-        #   | completed     |  Update finished  |   Refreshed       |
-        if model.status == 'pending':
+        #   |   STATUS      |     FRONT END     |     BACK END      |
+        #   | in_progress   |   Not affected    |  Updating         |
+        #   | pending       |   Needs refresh   |  Update finished  |
+        #   | completed     |   Refreshed       |  Update finished  |
+        status = model.get_status() # Checks DB
+
+        if status == 'in_progress':
+            print('Model is currently being updated')
+            # If the model is in progress, we return the last recommendation
+            recommendation = 'Model is currently being updated, but here is the last recommendation:\n' + model.recommendation
+        
+        elif status == 'pending':
             print('Model has been updated, refreshing now...'),
             models.pop(ticker)
             models[ticker] = Model(ticker)
             model = models[ticker]
             model.update_completed()
-            print('...done. Status set to ', model.status)
-        
+            print('...done. Status set to ', model.get_status())
+
+        elif status == 'completed':
+            print('Model is up-to-date.')
+
+        else: raise ValueError(f"Unknown status: {status}")
+                
         return jsonify({
             'result': model.recommendation,
-            'img1_path': model.img1_path.replace('\\', '/'),
-            'img2_path': model.img2_path.replace('\\', '/')
+            'img1_path': f"{model.img1_path.replace('\\', '/')}?t={int(time.time())}",
+            'img2_path': f"{model.img2_path.replace('\\', '/')}?t={int(time.time())}"
         })
+    
     except ConnectionError as e:
         model = None
         return jsonify({'result': 'Connection error occurred, likely issue with yfinance.'})
@@ -84,6 +102,7 @@ def check_columns():
 
 #--- First Boot ---#
 if __name__ == '__main__':
+    print('Starting Flask app...')
     # Create dirs
     img_dir = 'static/images'
     if not os.path.exists(img_dir):
@@ -98,4 +117,3 @@ if __name__ == '__main__':
 
     app.run(debug=False)
 #---------------------#
-

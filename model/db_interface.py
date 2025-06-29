@@ -62,7 +62,7 @@ class DBInterface:
                        SELECT model, result, last_update, status
                        FROM models
                        WHERE ticker = ?''',
-                       (ticker,))  # TODO may need this in parens?
+                       (ticker,))
         row = cursor.fetchone()
         conn.close()
 
@@ -79,9 +79,10 @@ class DBInterface:
             last_update = pd.Timestamp(last_update_text)
 
             # Done
-            print("\nLoaded data! Ticker:\t", ticker)
-                # "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-                # "\nResult:\t\t", result)
+            print("Loaded data! Ticker:\t", ticker)
+            # print("\nLoaded data! Ticker:\t", ticker,
+            #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+            #     "\nResult:\t\t", result, "\nStatus:\t\t", status)
             return model, result, last_update, status
         else:
             raise ValueError("Model could not be found in the database.")
@@ -137,13 +138,27 @@ class DBInterface:
         conn.close()
     #-----------------------------------#
 
+    #--- Function: Check the status ---#
+    def get_status(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT status FROM models WHERE ticker = ?', (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            print(f"db_interface.get_status for {ticker}: {row[0]}") # TODO remove after testing
+            return row[0]   # Return the status as a string
+        else:
+            raise ValueError("Ticker not found in the database.")
+    #-----------------------------------#
+
     #--- Function: set stock as outdated ---#
     def outdate(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE models 
-            SET last_update = ? 
+            SET last_update = ?
             WHERE ticker = ?''',
             ('2024-01-01', ticker))
         conn.commit()
@@ -152,53 +167,53 @@ class DBInterface:
 
 
 # TODO Removed this section due to circular import with Model
-# if __name__ == '__main__':
-#     # This can be run in the terminal from root directory:
-#     #       python -m model.db_interface
-#     # Note that epochs roughly equal minutes for 5 models on the AWS server
-#     dbi = DBInterface()
+if __name__ == '__main__':
+    # This can be run in the terminal from root directory:
+    #       python -m model.db_interface
+    # Note that epochs roughly equal minutes for 5 models on the AWS server
+    dbi = DBInterface()
     
-#     entry = -1
-#     while entry != 0:
-#         print('''\n*** ADMIN OPERATIONS MENU ***
-#               1. Outdate all models
-#               2. Train models - epochs
-#               3. Train models - MSE Threshold
-#               0. Exit''')
-#         entry = input('Please make your selection: ')
+    entry = -1
+    while entry != 0:
+        print('''\n*** ADMIN OPERATIONS MENU ***
+              1. Outdate all models
+              2. Train models - epochs
+              3. Train models - MSE Threshold
+              0. Exit''')
+        entry = input('Please make your selection: ')
 
-#         try:
-#             #   1 - Outdate Models
-#             entry = int(entry)
-#             if entry == 1:
-#                 for ticker in dbi.get_tickers():
-#                     dbi.outdate(ticker)
-#                 print('Outdated all models.')
+        try:
+            #   1 - Outdate Models
+            entry = int(entry)
+            if entry == 1:
+                for ticker in dbi.get_tickers():
+                    dbi.outdate(ticker)
+                print('Outdated all models.')
 
-#             #   2 - Train Models by Epoch
-#             elif entry == 2:
-#                 epochs = int(input('How many epochs? '))
-#                 for ticker in dbi.get_tickers():
-#                     print('Training model for ' + ticker + '...')
-#                     model = Model(ticker)
-#                     model.train(epochs)
-#                     print('\nFinished training!')
+            #   2 - Train Models by Epoch
+            elif entry == 2:
+                epochs = int(input('How many epochs? '))
+                for ticker in dbi.get_tickers():
+                    print('Training model for ' + ticker + '...')
+                    model = Model(ticker)
+                    model.train(epochs)
+                    print('\nFinished training!')
             
-#             #   3 - Train Models to beat threshold (max 100 epochs)
-#             elif entry == 3:
-#                 epochs = 50
-#                 threshold = 0.0002
-#                 for ticker in dbi.get_tickers():
-#                     print('Training model for ' + ticker + 
-#                           ' until MSE surpasses ' + str(threshold) + '...')
-#                     model = Model(ticker)
-#                     model.train(epochs, threshold=threshold)
-#                     print('\nFinished training!')
+            #   3 - Train Models to beat threshold (max 100 epochs)
+            elif entry == 3:
+                epochs = 50
+                threshold = 0.0002
+                for ticker in dbi.get_tickers():
+                    print('Training model for ' + ticker + 
+                          ' until MSE surpasses ' + str(threshold) + '...')
+                    model = Model(ticker)
+                    model.train(epochs, threshold=threshold)
+                    print('\nFinished training!')
             
-#             #   Finished
-#             if entry != 0:
-#                 input('Press any key to continue...')
+            #   Finished
+            if entry != 0:
+                input('Press any key to continue...')
 
-#         except ValueError as e:
-#             print('Invalid entry')
-#             entry = -1
+        except ValueError as e:
+            print('Invalid entry')
+            entry = -1

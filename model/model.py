@@ -10,7 +10,7 @@ class Model:
     # LSTM Vars
     ticker = None
     recommendation = None
-    status = None
+    _status = None
     _lstm = None
     _prediction = None
     _mirror = None
@@ -33,8 +33,11 @@ class Model:
 
         # First, try to load an existing model
         try:
-            keras_model, self.recommendation, last_update, self.status = self._db.load(ticker)
-            self._lstm = LSTMModel(ticker, keras_model, last_update)
+            keras_model, self.recommendation, last_update, self._status = self._db.load(ticker)
+            # print(f"status: {self._status}") # TODO remove after testing
+            self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
+            # print(self.get_status()) # TODO remove after testing
+            # print(f"status: {self._status}") # TODO remove after testing
 
         except Exception as e:
             print(e)
@@ -43,13 +46,13 @@ class Model:
             print("Creating new model...")
             # Train a new model on 10+ years of data
             self._lstm = LSTMModel(ticker)
-        self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
-        self._set_status(2) # TODO debug statement, delete
+            self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self):
         # Make prediction (data) & recommendation (text)
+        print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
         self.recommendation = self._lstm.buy_or_sell(prediction)
         
@@ -96,9 +99,13 @@ class Model:
 
     #--- Function: Train model further ---#
     def train(self, epochs, threshold=0):
+        self._set_status(1)
+        # Train the LSTM model
         self._lstm.train(epochs, mse_threshold=threshold)
         self.generate_output()
         self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+        self._set_status(2)
+        # print(f"Model for {self.ticker} trained and updated successfully.")
     #----------------------------------------------#
 
     #--- Function: Change status to completed ---#
@@ -115,16 +122,14 @@ class Model:
             temp_status = 'pending'
         elif status_int == 3:
             temp_status = 'completed'
+        else:
+            raise ValueError("Invalid status integer.")
         
         self._db.set_status(self.ticker, temp_status)
-        self.status = temp_status
+        self._status = temp_status
     #----------------------------#
 
-    #--- Function: Perform a daily update ---#
-    def update(self):
-        self._set_status(1)
-        self.train(50, .0002)
-        # Status is set to pending automatically
-
-        self.generate_output()
-    #----------------------------------------#
+    #--- Function: Check status ---#
+    def get_status(self):
+        return self._db.get_status(self.ticker)
+    #----------------------------#

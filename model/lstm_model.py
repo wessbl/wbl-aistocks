@@ -186,7 +186,6 @@ class LSTMModel:
                     print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
 
         self.last_update = self.last_close()
-        print('Trained model for ' + self.ticker + ' ' + str(epochs) + ' times.')
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#
