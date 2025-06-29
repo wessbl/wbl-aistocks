@@ -34,10 +34,7 @@ class Model:
         # First, try to load an existing model
         try:
             keras_model, self.recommendation, last_update, self._status = self._db.load(ticker)
-            # print(f"status: {self._status}") # TODO remove after testing
             self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
-            # print(self.get_status()) # TODO remove after testing
-            # print(f"status: {self._status}") # TODO remove after testing
 
         except Exception as e:
             print(e)
@@ -105,7 +102,6 @@ class Model:
         self.generate_output()
         self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
         self._set_status(2)
-        # print(f"Model for {self.ticker} trained and updated successfully.")
     #----------------------------------------------#
 
     #--- Function: Change status to completed ---#

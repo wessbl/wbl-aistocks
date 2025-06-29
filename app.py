@@ -44,11 +44,12 @@ def predict():
         #   | pending       |   Needs refresh   |  Update finished  |
         #   | completed     |   Refreshed       |  Update finished  |
         status = model.get_status() # Checks DB
+        recommendation = model.recommendation
 
         if status == 'in_progress':
             print('Model is currently being updated')
             # If the model is in progress, we return the last recommendation
-            recommendation = 'Model is currently being updated, but here is the last recommendation:\n' + model.recommendation
+            recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
         
         elif status == 'pending':
             print('Model has been updated, refreshing now...'),
@@ -56,15 +57,18 @@ def predict():
             models[ticker] = Model(ticker)
             model = models[ticker]
             model.update_completed()
+            recommendation = model.recommendation
             print('...done. Status set to ', model.get_status())
 
         elif status == 'completed':
             print('Model is up-to-date.')
 
         else: raise ValueError(f"Unknown status: {status}")
+
+        print(recommendation) # TODO debug print
                 
         return jsonify({
-            'result': model.recommendation,
+            'result': recommendation,
             'img1_path': f"{model.img1_path.replace('\\', '/')}?t={int(time.time())}",
             'img2_path': f"{model.img2_path.replace('\\', '/')}?t={int(time.time())}"
         })

@@ -146,7 +146,6 @@ class DBInterface:
         row = cursor.fetchone()
         conn.close()
         if row:
-            print(f"db_interface.get_status for {ticker}: {row[0]}") # TODO remove after testing
             return row[0]   # Return the status as a string
         else:
             raise ValueError("Ticker not found in the database.")
