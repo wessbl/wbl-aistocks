@@ -158,6 +158,16 @@ class LSTMModel:
         return yesterday
     #---------------------------------------------------#
 
+    #--- Function: Check if the model needs to be updated ---#
+    def needs_update(self):
+        # If the model is None, it needs to be updated
+        if self._model is None or self.last_update.date() < self.last_close():
+            return True
+
+        # Otherwise, no update needed
+        return False
+#------------------------------------------------------------#
+
     #--- Function: Train the model on the latest closing price ---#
     def train(self, epochs, mse_threshold=0):
         global model
@@ -197,9 +207,9 @@ class LSTMModel:
         if last_price <= last_predicted:
             percent = percent - 100
             percent = str(f"{percent:.2f}")
-            return "<b>Buy!</b><br>FutureStock AI says this stock will go up in value by " + percent + "%."
+            return "Buy: AIStockHelper says this stock will go up in value by " + percent + "%."
         else:
             percent = 100 - percent
             percent = str(f"{percent:.2f}")
-            return "<b>Sell!</b><br>FutureStock AI says this stock will go down in value by " + percent + "%."
+            return "Sell: AIStockHelper says this stock will go down in value by " + percent + "%."
     #---------------------------------------------------------#

@@ -96,11 +96,17 @@ class Model:
 
     #--- Function: Train model further ---#
     def train(self, epochs, threshold=0):
+        # Check if the model needs to be updated
+        if not self._lstm.needs_update():
+            print(f"Model for {self.ticker} is up-to-date, no training needed.")
+            return
+        # Set status to in_progress
         self._set_status(1)
-        # Train the LSTM model
+        # Train, generate output, and save to DB
         self._lstm.train(epochs, mse_threshold=threshold)
         self.generate_output()
         self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+        # Set status to pending (for front-end refresh)
         self._set_status(2)
     #----------------------------------------------#
 
