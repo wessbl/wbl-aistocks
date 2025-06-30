@@ -69,12 +69,15 @@ def predict():
 
         else: raise ValueError(f"Unknown status: {status}")
 
-        print(recommendation) # TODO debug print
-                
+        # Prepare image paths
+        img1_path = model.img1_path.replace('\\', '/')
+        img2_path = model.img2_path.replace('\\', '/')
+
+        # Return the recommendation and image paths
         return jsonify({
             'result': recommendation,
-            'img1_path': f"{model.img1_path.replace('\\', '/')}?t={int(time.time())}",
-            'img2_path': f"{model.img2_path.replace('\\', '/')}?t={int(time.time())}"
+            'img1_path': f"{img1_path}?t={int(time.time())}",
+            'img2_path': f"{img2_path}?t={int(time.time())}"
         })
     
     except ConnectionError as e:
