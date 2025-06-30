@@ -8,3 +8,4 @@ start_gunicorn.sh
 venv/
 static/
 */__pycache__/
+logs/
