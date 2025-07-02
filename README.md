@@ -48,7 +48,13 @@ Wess Lancaster
 [LinkedIn](https://linkedin.com/in/wessbl)
 
 ## Version History
-
+* 0.6
+    * Program now automatically auto-updates at 4:30pm EST
+    * Models are now stored with a status for update handling
+    * If user accesses a ticker during an update a message is displayed above the older results
+    * Removed browser caching to ensure that the latest prediction is always shown
+    * Added basic formatting for prediction message (bold and new line)
+    * Removed "Not loading?" Message
 * 0.5
     * Images now resize with smaller screens/windows
     * Added white paper and repo links

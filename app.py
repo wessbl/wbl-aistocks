@@ -34,7 +34,7 @@ def predict():
         return jsonify({'error': 'Predict button clicked but no stock symbol provided'}), 400
 
     ticker = data['stock_symbol']
-    print(f"Predict button clicked for ticker: {ticker}")
+    print(f"\nPredict button clicked for ticker: {ticker}")
 
     try:
         model = models.get(ticker)
@@ -90,29 +90,6 @@ def predict():
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
 
-#   TODO This function can be removed after update overhaul is deployed
-#--- Function: Ensure new column method is in place ---#
-def check_columns():
-    # Connect
-    import sqlite3
-    db_path = 'static/models/models.db'
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Check if new column exists
-    cursor.execute(f'PRAGMA table_info(models)')
-    columns = [info[1] for info in cursor.fetchall()]
-    if 'status' not in columns:
-        print('New column must be added to models.db, updating now...')
-        cursor.execute('''
-            ALTER TABLE models ADD COLUMN status TEXT DEFAULT 'pending';
-            ''')
-        print('Table has been updated!')
-    else:
-        print('Table structure has been updated, consider removing old methods...')
-
-#--------------------------------#
-
 #--- First Boot ---#
 if __name__ == '__main__':
     print('Starting Flask app...')
@@ -125,8 +102,5 @@ if __name__ == '__main__':
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
     
-    # TODO this can be removed after update overhaul is deployed
-    check_columns()
-
     app.run(debug=False)
 #---------------------#
