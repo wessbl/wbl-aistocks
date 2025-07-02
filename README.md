@@ -1,6 +1,7 @@
 # FutureStock AI
 
 A Flask-based LSTM application that predicts future stock prices for selected tickers.
+
 <img src="screenshots/futurestock-ss.png" alt="FutureStock AI Screenshot" height="500">
 
 ## Description
