@@ -55,6 +55,7 @@ Wess Lancaster
     * Removed browser caching to ensure that the latest prediction is always shown
     * Added basic formatting for prediction message (bold and new line)
     * Removed "Not loading?" Message
+    * See [commit change](https://github.com/wessbl/wbl-aistocks/commit/2406748f5aac82f328ce579fc554bb37e5ea3610)
 * 0.5
     * Images now resize with smaller screens/windows
     * Added white paper and repo links
