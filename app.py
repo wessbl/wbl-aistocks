@@ -26,15 +26,15 @@ def download_file(filename):
 # 'Predict' button clicked
 @app.route('/predict', methods=['POST'])
 def predict():
-    print('\nPredict button clicked')
     # Check if the request contains JSON data)
     data = request.json
     if not data:
-        return jsonify({'error': 'No data provided'}), 400
+        return jsonify({'error': 'Predict button clicked but no data provided'}), 400
     if 'stock_symbol' not in data:
-        return jsonify({'error': 'No stock symbol provided'}), 400
+        return jsonify({'error': 'Predict button clicked but no stock symbol provided'}), 400
 
     ticker = data['stock_symbol']
+    print(f"Predict button clicked for ticker: {ticker}")
 
     try:
         model = models.get(ticker)
@@ -74,11 +74,13 @@ def predict():
         img2_path = model.img2_path.replace('\\', '/')
 
         # Return the recommendation and image paths
-        return jsonify({
+        response = jsonify({
             'result': recommendation,
             'img1_path': f"{img1_path}?t={int(time.time())}",
             'img2_path': f"{img2_path}?t={int(time.time())}"
         })
+        response.headers['Cache-Control'] = 'no-store'
+        return response
     
     except ConnectionError as e:
         model = None
