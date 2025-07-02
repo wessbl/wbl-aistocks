@@ -1,20 +1,20 @@
 # FutureStock AI
 
-A Flask web app that predicts future stock prices.
+A Flask-based LSTM application that predicts future stock prices for selected tickers.
+<img src="screenshots/futurestock-ss.png" alt="FutureStock AI Screenshot" height="500">
 
 ## Description
 
-This application trains LSTM models on a set of stocks, keeping them updated with every new closing price. **This project is merely a demonstration of AI and should not be taken as financial advice.**
+This application trains LSTM models on selected stock tickers and continuously updates them. With every new closing price, the app loads a pre-trained model from an SQLite database. If the market has closed since the last prediction, the model is updated, a new prediction is generated, and both are saved. Results include formatted text and visualizations.
 
-When a user selects a stock ticker, the application loads the model trained on that ticker from an SQLite database, along with its most recent predictions. The model is updated and makes a prediction if the market has closed since its last prediction, images are generated, and everything is saved.
+> **Note:** This is a portfolio project demonstrating AI integration and should not be interpreted as financial advice.
 
 ## Getting Started
 
 ### Dependencies
 
-* python3 to create virtual environments and run the program
-* Flask, yfinance, sqlite3, matplotlib, numpy, pandas, tensorflow, keras, sklearn
-* The full list of requirements is in the requirements.txt file, along with the versions for each package. This makes installation much easier from a terminal.
+* Python 3
+* `requirements.txt` includes all necessary packages such as Flask, TensorFlow, Pandas, etc.
 
 ### Installing
 
@@ -30,22 +30,24 @@ pip install -r requirements.txt
 ### Executing program
 
 * Open a terminal to the root directory
-* To run a local development server, use:
+* To run the app in development mode:
 ``` 
 python app.py
 ```
+This will launch the app locally at `http://127.0.0.1:5000/`.
+
 
 ## Help
 
-* For a basic demonstration of how the code works, check out my [Jupyter Notebook Version](https://colab.research.google.com/drive/1z96VjkJXcIOQ6KdNjEPjhmxKKfLd7FLH)
-* The program starts from scratch when there is no database file. You can delete it at anytime: root/static/models/model.db
-* To tweak the models more accurate or lower the loading times, make changes to the global variables in root/model/lstm_model.py. For example, lowering the epochs will decrease both loading times and accuracy in general.
-* Feel free to email me at wess.lancaster@gmail.com
+* For a basic walkthrough, see my [Jupyter Notebook Version](https://colab.research.google.com/drive/1z96VjkJXcIOQ6KdNjEPjhmxKKfLd7FLH).
+* The app starts fresh when `model.db` is deleted: `static/models/model.db`.
+* To tweak performance or accuracy, adjust the global variables in `model/lstm_model.py`. For example, lowering `epochs` speeds up training but reduces accuracy.
 
 ## Author
 
-Wess Lancaster  
-[LinkedIn](https://linkedin.com/in/wessbl)
+**Wess Lancaster**  
+[LinkedIn ↗](https://linkedin.com/in/wessbl)  
+wess.lancaster@gmail.com
 
 ## Version History
 * 0.6
