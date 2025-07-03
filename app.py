@@ -102,5 +102,10 @@ if __name__ == '__main__':
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
     
+    # Check for version updates
+    if os.path.exists('fs_version_update.py'):
+        import fs_version_update
+        fs_version_update.update_fs()
+    
     app.run(debug=False)
 #---------------------#

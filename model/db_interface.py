@@ -17,8 +17,8 @@ class DBInterface:
     def get_lstm_path(self, ticker):
         return os.path.join(self._lstm_path, ticker + '.keras')
     
-    #--- Function: Save to DB ---#
-    def save(self, ticker, model, last_update, result=''):
+    #--- Function: Save model to DB ---#
+    def save_model(self, ticker, model, last_update, result=''):
         # Save model as file
         path = self.get_lstm_path(ticker)
         model._model.save(path)
@@ -51,6 +51,67 @@ class DBInterface:
         conn.commit()
         conn.close()
     #------------------------------#
+
+    #--- Function: Save Day to DB ---#
+    def _save_day(self, day_string):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS day (
+            dayid SMALLINT PRIMARY KEY AUTOINCREMENT,
+            date TEXT
+            );
+        ''')
+
+        # Insert or update the day data
+        cursor.execute('''
+            INSERT INTO day (date)
+            VALUES (?)''',
+            (day_string,))
+        conn.commit()
+        conn.close()
+    #--------------------------------#
+    
+    #--- Function: Get the integer ID of the day ---#
+    def get_day_id(self, target):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT dayid FROM day WHERE date = ?''',
+            (target,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return row[0]  # Return the dayid
+        
+        # If the day does not exist, verify we have all the days leading up to it
+        # and save all in the database
+        else:
+            # Get the last day in the database
+            cursor = conn.cursor()
+            cursor.execute('SELECT date FROM day ORDER BY dayid DESC LIMIT 1')
+            last_day_row = cursor.fetchone()
+            last_day = last_day_row[0] if last_day_row else '2025-01-01'
+
+            # Get all the days since last
+            import yfinance as yf
+            yf_data = yf.download("AAPL", start=last_day)
+            if yf_data.empty:
+                raise ValueError("Could not pull yfinance data while trying to create dates.")
+            date_list = yf_data.index.tolist()
+
+            # Add all dates and check if target is in the list
+            date_added = False
+            for date in date_list:
+                string_date = date.strftime("%Y-%m-%d")
+                self._save_day(string_date)
+                if string_date == target:
+                    date_added = True
+            if not date_added:
+                return -1
+            return self.get_day_id(target)
+    #--------------------------------#
 
     #--- Function: Load from DB ---#
     def load(self, ticker):
@@ -163,6 +224,15 @@ class DBInterface:
         conn.commit()
         conn.close()
     #-------------------------------------------#
+
+    #--- Function: Perform Some Update ---#
+    def do_version_update(self, instructions):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.executescript(instructions)
+        conn.commit()
+        conn.close()
+    #-------------------------------------#
 
 
 # TODO Removed this section due to circular import with Model
