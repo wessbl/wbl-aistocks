@@ -6,6 +6,9 @@ print("*** Beginning Scheduled Update ***")
 db = DBInterface()
 tickers = db.get_tickers()
 
+# Prepare the day
+db.get_day_id('2999-01-01')  # This will ensure the day table is up to date
+
 for ticker in tickers:
     print(f"Updating model for {ticker}...")
     model = Model(ticker)

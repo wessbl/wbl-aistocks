@@ -33,7 +33,7 @@ class Model:
 
         # First, try to load an existing model
         try:
-            keras_model, self.recommendation, last_update, self._status = self._db.load(ticker)
+            keras_model, self.recommendation, last_update, self._status = self._db.load_model(ticker)
             self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
 
         except Exception as e:
@@ -43,7 +43,7 @@ class Model:
             print("Creating new model...")
             # Train a new model on 10+ years of data
             self._lstm = LSTMModel(ticker)
-            self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+            self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
@@ -51,8 +51,18 @@ class Model:
         # Make prediction (data) & recommendation (text)
         print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
-        self.recommendation = self._lstm.buy_or_sell(prediction)
+        rec = self._lstm.buy_or_sell(prediction)
+        self.recommendation = rec[1]  # Get the recommendation text
+
+        # Save the prediction to the database
+        today = self._db.today_id()
+        if today == -1:
+            print("Error: Could not get today's day ID from the database.")
+            return
+        for i in range(len(prediction)):
+            self._db.save_prediction(self.ticker, today, today+i, prediction[i], rec[0])
         
+        # Create images
         mirror = self._lstm.mirror_data()
         self._generate_prediction(self._lstm, prediction)
         self._generate_mirror(self._lstm, mirror)
@@ -104,8 +114,13 @@ class Model:
         self._set_status(1)
         # Train, generate output, and save to DB
         self._lstm.train(epochs, mse_threshold=threshold)
+
+        # TODO 0.7 - Save the closing price
+
+        # TODO 0.8 - Calculate accuracy here
+
         self.generate_output()
-        self._db.save(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+        self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
         # Set status to pending (for front-end refresh)
         self._set_status(2)
     #----------------------------------------------#

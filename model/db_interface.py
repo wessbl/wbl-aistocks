@@ -71,6 +71,71 @@ class DBInterface:
         conn.commit()
         conn.close()
     #--------------------------------#
+
+    #--- Function: Save Prediction to DB ---#
+    def save_prediction(self, ticker, from_day, for_day, predicted_price, buy):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS prediction (
+                predict_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                from_day SMALLINT NOT NULL,
+                for_day SMALLINT NOT NULL,
+                predicted_price REAL NOT NULL,
+                actual_price REAL,
+                buy BOOLEAN,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+
+        # Insert or update the prediction data
+        cursor.execute('''
+            INSERT OR REPLACE INTO prediction (ticker, from_day, for_day, predicted_price, actual_price, buy)
+            VALUES (?, ?, ?, ?, ?, ?)''',
+            (ticker, from_day, for_day, predicted_price, None, buy))
+        conn.commit()
+        conn.close()
+    #---------------------------------------#
+
+    #--- Function: Update the Actual Price ---#
+    def update_actual_price(self, ticker, for_day, actual_price):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE prediction
+            SET actual_price = ?
+            WHERE ticker = ? AND for_day = ?''',
+            (actual_price, ticker, for_day))
+        conn.commit()
+        conn.close()
+    #---------------------------------------#
+
+    #--- Function: Save Today's Accuracy ---#
+    def save_accuracy(self, ticker, day, mape, buy_accuracy, simulated_profit):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS daily_accuracy (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT NOT NULL,
+            day SMALLINT NOT NULL,
+            mape REAL,
+            buy_accuracy REAL,
+            simulated_profit REAL,
+            UNIQUE(ticker, date)
+        )
+        ''')
+
+        # Insert or update the accuracy data
+        cursor.execute('''
+            INSERT OR REPLACE INTO accuracy (ticker, day, mape, buy_accuracy, simulated_profit)
+            VALUES (?, ?, ?, ?, ?)''',
+            (ticker, day, mape, buy_accuracy, simulated_profit))
+        conn.commit()
+        conn.close()
+    #---------------------------------------#
+
     
     #--- Function: Get the integer ID of the day ---#
     def get_day_id(self, target):
@@ -80,41 +145,63 @@ class DBInterface:
             SELECT dayid FROM day WHERE date = ?''',
             (target,))
         row = cursor.fetchone()
-        conn.close()
 
         if row:
+            conn.close()
             return row[0]  # Return the dayid
         
         # If the day does not exist, verify we have all the days leading up to it
         # and save all in the database
         else:
-            # Get the last day in the database
-            cursor = conn.cursor()
-            cursor.execute('SELECT date FROM day ORDER BY dayid DESC LIMIT 1')
-            last_day_row = cursor.fetchone()
-            last_day = last_day_row[0] if last_day_row else '2025-01-01'
-
-            # Get all the days since last
-            import yfinance as yf
-            yf_data = yf.download("AAPL", start=last_day)
-            if yf_data.empty:
-                raise ValueError("Could not pull yfinance data while trying to create dates.")
-            date_list = yf_data.index.tolist()
-
-            # Add all dates and check if target is in the list
-            date_added = False
-            for date in date_list:
-                string_date = date.strftime("%Y-%m-%d")
-                self._save_day(string_date)
-                if string_date == target:
-                    date_added = True
-            if not date_added:
+            self._populate_dates(target)
+            cursor.execute('''
+                SELECT dayid FROM day WHERE date = ?''',
+                (target,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                return row[0]
+            else:
                 return -1
-            return self.get_day_id(target)
     #--------------------------------#
 
+    #--- Function: Get today's day ID ---#
+    def today_id(self):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT dayid FROM day ORDER BY dayid DESC LIMIT 1')
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]
+        else:
+            # If no days exist, return -1
+            return -1
+    #--------------------------------#
+
+    #--- Function: Add all missing dates to the database ---#
+    def _populate_dates(self):
+        # Get the last day in the database
+        last_day = '2025-01-01'
+        today = self.today_id()
+        if today != -1:
+            last_day = today
+
+        # Get all the days since last
+        import yfinance as yf
+        yf_data = yf.download("AAPL", start=last_day)
+        if yf_data.empty:
+            raise ValueError("Could not pull yfinance data while trying to create dates.")
+        date_list = yf_data.index.tolist()
+
+        # Add all dates
+        for date in date_list:
+            string_date = date.strftime("%Y-%m-%d")
+            self._save_day(string_date)
+    #-----------------------------------------------#
+
     #--- Function: Load from DB ---#
-    def load(self, ticker):
+    def load_model(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 

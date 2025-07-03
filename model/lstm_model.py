@@ -136,6 +136,7 @@ class LSTMModel:
 
     #--- Function: Get the last market close date ---#
     def last_close(self):
+        #TODO 0.7 put everything in this file to match new day_id format instead
         # Get the current time & day
         now = datetime.now(pytz.timezone('US/Eastern'))
         today = now.date()
@@ -207,9 +208,9 @@ class LSTMModel:
         if last_price <= last_predicted:
             percent = percent - 100
             percent = str(f"{percent:.2f}")
-            return "<b>Buy</b><br>AIStockHelper says this stock will go up in value by " + percent + "%."
+            return (True, "<b>Buy</b><br>AIStockHelper says this stock will go up in value by " + percent + "%.")
         else:
             percent = 100 - percent
             percent = str(f"{percent:.2f}")
-            return "<b>Sell</b><br>AIStockHelper says this stock will go down in value by " + percent + "%."
+            return (False, "<b>Sell</b><br>AIStockHelper says this stock will go down in value by " + percent + "%.")
     #---------------------------------------------------------#
