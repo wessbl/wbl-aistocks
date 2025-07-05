@@ -6,8 +6,8 @@ from keras.models import load_model
 class DBInterface:
     # Path to database
     _base_dir = os.path.dirname(os.path.abspath(__file__))
-    _db_path = os.path.join(_base_dir, '../static/models/models.db')
-    _lstm_path = os.path.join(_base_dir, '../static/models/')
+    _db_path = os.path.join(_base_dir, '../static/models/model.db')
+    _lstm_path = os.path.join(_base_dir, '../static/model/')
     
     # Verify path
     if not os.path.exists(_db_path):
@@ -34,18 +34,20 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS models (
-            ticker TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS model (
+            id SMALLINT PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT UNIQUE NOT NULL,
             model BLOB,
-            result TEXT
-            last_update TEXT,
-            status TEXT
+            result TEXT,
+            last_update SMALLINT,
+            status TEXT,
+            version SMALLINT DEFAULT 0
             )
         ''')
 
         # Store the model in the database
         cursor.execute('''
-            INSERT OR REPLACE INTO models (ticker, model, result, last_update, status)
+            INSERT OR REPLACE INTO model (ticker, model, result, last_update, status)
             VALUES (?, ?, ?, ?, ?)''',
             (ticker, model_binary, result, last_update_txt, 'pending'))    # Pending: front-end needs to be refreshed
         conn.commit()
@@ -56,12 +58,6 @@ class DBInterface:
     def _save_day(self, day_string):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS day (
-            dayid SMALLINT PRIMARY KEY AUTOINCREMENT,
-            date TEXT
-            );
-        ''')
 
         # Insert or update the day data
         cursor.execute('''
@@ -142,6 +138,12 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS day (
+            dayid SMALLINT PRIMARY KEY AUTOINCREMENT,
+            date TEXT
+            );
+        ''')
+        cursor.execute('''
             SELECT dayid FROM day WHERE date = ?''',
             (target,))
         row = cursor.fetchone()
@@ -208,7 +210,7 @@ class DBInterface:
         # Handle blob -> model
         cursor.execute('''
                        SELECT model, result, last_update, status
-                       FROM models
+                       FROM model
                        WHERE ticker = ?''',
                        (ticker,))
         row = cursor.fetchone()
@@ -240,7 +242,7 @@ class DBInterface:
     def drop_table(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('DROP TABLE IF EXISTS models')
+        cursor.execute('DROP TABLE IF EXISTS model')
         conn.commit()
         conn.close()
     #------------------------------#
@@ -250,7 +252,7 @@ class DBInterface:
         #--- Print tickers from the database
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT ticker FROM models')
+        cursor.execute('SELECT ticker FROM model')
         data = cursor.fetchall()
         conn.close()
         tickers = []
@@ -264,7 +266,7 @@ class DBInterface:
         #--- Print tickers from the database
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT last_update FROM models')
+        cursor.execute('SELECT last_update FROM model')
         data = cursor.fetchall()
         conn.close()
         dates = []
@@ -278,7 +280,7 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            UPDATE models
+            UPDATE model
             SET status = ?
             WHERE ticker = ?''',
             (status, ticker))
@@ -290,7 +292,7 @@ class DBInterface:
     def get_status(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT status FROM models WHERE ticker = ?', (ticker,))
+        cursor.execute('SELECT status FROM model WHERE ticker = ?', (ticker,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -304,7 +306,7 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            UPDATE models 
+            UPDATE model
             SET last_update = ?
             WHERE ticker = ?''',
             ('2024-01-01', ticker))
