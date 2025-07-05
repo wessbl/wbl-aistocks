@@ -57,15 +57,17 @@ def predict():
         
         elif status == 'pending':
             print('Model has been updated, refreshing now...'),
-            models.pop(ticker)
-            models[ticker] = Model(ticker)
-            model = models[ticker]
-            model.update_completed()
+            print(f"\t[Pre-pop] Model ID: {id(models.get(ticker))}")
+            models.pop(ticker, None)
+            print(f"\t[Post-pop] Exists? {ticker in models}")
+            new_model = Model(ticker)
+            new_model.update_completed()
+            models[ticker] = new_model
             recommendation = model.recommendation
             print('...done. Status set to ', model.get_status())
 
         elif status == 'completed':
-            print('Model is up-to-date.')
+            print(f'Model is up-to-date. There are {models.__len__()} models in memory.')
 
         else: raise ValueError(f"Unknown status: {status}")
 
