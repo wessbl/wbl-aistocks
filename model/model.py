@@ -74,9 +74,10 @@ class Model:
         zoom_data = _lstm.orig_data[-_lstm.time_step:]
         dividing_line = _lstm.time_step - 1
         end = dividing_line + len(prediction)
+        date = _db.get_day_string(_db.today_id())
         plt.figure(figsize=(6, 3)) # TODO check new size
         plt.title(f'Prediction - {_lstm.ticker}')
-        plt.axvline(x=dividing_line, color='grey', linestyle=':', label=_lstm.last_update.strftime("%m/%d/%Y"))
+        plt.axvline(x=dividing_line, color='grey', linestyle=':', label=date)
         plt.plot(zoom_data, label="Actual Price")
         plt.plot(np.arange(dividing_line, end), prediction, label='Prediction')
         plt.legend()

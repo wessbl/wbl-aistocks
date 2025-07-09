@@ -20,3 +20,33 @@ def get_all_dates(since_date="2025-01-01"):
     return dates
 #---------------------------------------------------#
 
+#--- Function: Check if the market is closed today ---#
+def last_close():
+    """ Check if the market is closed today by checking if yfinance has a close date for today."""
+
+    # Check if yfinance has a close date for today
+    df = yf.download("AAPL", period="1d", interval="1d", progress=False)
+    if df.empty:
+        print("Market has not closed yet today.")                #TODO need to return results
+    else:
+        print("Market is closed — today's data is available.") #TODO need to return results
+#------------------------------------------------------#
+
+#--- Function: Get the latest close prices for a ticker ---#
+def get_close_prices(ticker, start_date):
+    """"""
+    # TODO remove after testing
+    # # Get all data from start through last close (yf excludes end date)
+    # today = pd.Timestamp.now().date()
+    # if today >= self.last_close():
+    #     df = yf.download(self.ticker, interval="1d", start=self._start_date)
+    # else: 
+    #     df = yf.download(self.ticker, start=self._start_date, end=today)
+
+    df = yf.download(ticker, interval="1d", start=start_date, progress=False)
+    if (len(df) == 0): raise ValueError("Cannot download from yfinance")
+
+    # Create global orig_data, scaler, scaled_data, X, y
+    data = df['Close'].values
+    return data
+#------------------------------------------------------#

@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pytz
 from datetime import datetime, timedelta
+from yf_interface import get_close_prices, last_close
 import logging
 import os
 logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
@@ -17,7 +18,7 @@ class LSTMModel:
     # LSTM Performance Variables
     ticker = None               # MSFT | DAC | AAPL
     time_step = 50              # 50  | 100 |
-    _epochs = 10                # 10  | 50  | 100   #TODO switch to 100 after server switch
+    _epochs = 10                # 10  | 50  | 100   #TODO switch to 100 for accuracy update
     _update_epoch = 1           # how many epochs for an update
     _prediction_len = 5         # how many days to predict
     _start_date = '2015-01-01'
@@ -33,7 +34,7 @@ class LSTMModel:
 
     #--- Constructor ---#
     def __init__(self, ticker, model=None, last_update=None, status=None):
-        # Check for valid model & attempt update
+        # Check for valid model
         if model is not None:
             self.ticker = ticker
             self._model = model
@@ -42,10 +43,12 @@ class LSTMModel:
             print("Model loaded.")
         else:
             # Get data & train brand-new model
-            self.ticker = ticker
-            self.preprocess()
-            print("Training new model...")
-            self._model = self.train_model(model)
+            # self.ticker = ticker
+            # self.preprocess()
+            # print("Training new model...")
+            # self._model = self._train_model(model)
+            # TODO remove after testing
+            raise ValueError("Model cannot be None. Please provide a valid model or train a new one.")
     #------------------------------#
 
     #--- Function: Create the dataset for LSTM ---#
@@ -59,16 +62,7 @@ class LSTMModel:
 
     #--- Function: Preprocess the latest data ---#
     def preprocess(self):
-        # Get all data from start through last close (yf excludes end date)
-        today = pd.Timestamp.now().date()
-        if today >= self.last_close():
-            df = yf.download(self.ticker, start=self._start_date)
-        else: 
-            df = yf.download(self.ticker, start=self._start_date, end=today)
-        if (len(df) == 0): raise ValueError("Cannot download from yfinance")
-
-        # Create global orig_data, scaler, scaled_data, X, y
-        orig_data = df['Close'].values
+        orig_data = yfi.get_close_prices(self.ticker, self._start_date)  # Get the latest close prices
         self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
         self.scaler = MinMaxScaler(feature_range=(0,1))
         self._scaled_data = self.scaler.fit_transform(self.orig_data)
@@ -79,7 +73,7 @@ class LSTMModel:
     #---------------------------------------------#
 
     #--- Function: Train a new or existing model ---#
-    def train_model(self, model):
+    def _train_model(self, model):
         # Build and compile the LSTM, if needed
         if (model == None):
             model = Sequential()
@@ -136,12 +130,8 @@ class LSTMModel:
 
     #--- Function: Get the last market close date ---#
     def last_close(self):
-        # Check if yfinance has a close date for today
-        df = yf.download("AAPL", period="1d", interval="1d", progress=False)
-        if df.empty:
-            print("Market has not closed yet today.")
-        else:
-            print("Market is closed — today's data is available.")
+        yfi.last_close()
+
     #---------------------------------------------------#
 
     #--- Function: Check if the model needs to be updated ---#
