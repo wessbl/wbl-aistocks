@@ -136,27 +136,12 @@ class LSTMModel:
 
     #--- Function: Get the last market close date ---#
     def last_close(self):
-        #TODO 0.7 put everything in this file to match new day_id format instead
-        # Get the current time & day
-        now = datetime.now(pytz.timezone('US/Eastern'))
-        today = now.date()
-
-        # If the market is closed, return today
-        market_close_time = now.replace(hour=16, minute=0, second=0)
-        market_closed = market_close_time <= now
-        if market_closed:
-            return today
-
-        # Get data for last several closes and capture date
-        two_weeks = now - timedelta(days=10)
-        minidata = yf.download(self.ticker, start=two_weeks, end=today)
-        minidata.reset_index(inplace=True)
-        minidata = minidata['Date']
-
-        # Get 'yesterday': the last market close before today
-        yesterday = minidata[len(minidata) - 1] # Last market close
-        yesterday = yesterday.to_pydatetime().date()
-        return yesterday
+        # Check if yfinance has a close date for today
+        df = yf.download("AAPL", period="1d", interval="1d", progress=False)
+        if df.empty:
+            print("Market has not closed yet today.")
+        else:
+            print("Market is closed — today's data is available.")
     #---------------------------------------------------#
 
     #--- Function: Check if the model needs to be updated ---#

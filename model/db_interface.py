@@ -1,6 +1,6 @@
 import sqlite3
 import os
-import pandas as pd
+import yf_interface as yfi
 from keras.models import load_model
 
 class DBInterface:
@@ -35,9 +35,9 @@ class DBInterface:
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS model (
-            id SMALLINT PRIMARY KEY AUTOINCREMENT,
+            model_id SMALLINT PRIMARY KEY AUTOINCREMENT,
             ticker TEXT UNIQUE NOT NULL,
-            model BLOB,
+            blob BLOB,
             result TEXT,
             last_update SMALLINT,
             status TEXT,
@@ -47,12 +47,85 @@ class DBInterface:
 
         # Store the model in the database
         cursor.execute('''
-            INSERT OR REPLACE INTO model (ticker, model, result, last_update, status)
+            INSERT OR REPLACE INTO model (ticker, blob, result, last_update, status)
             VALUES (?, ?, ?, ?, ?)''',
             (ticker, model_binary, result, last_update_txt, 'pending'))    # Pending: front-end needs to be refreshed
         conn.commit()
         conn.close()
     #------------------------------#
+
+    #--- Function: Load from DB ---#
+    def load_model(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+
+        # Handle blob -> model
+        cursor.execute('''
+                       SELECT blob, result, last_update, status
+                       FROM model
+                       WHERE ticker = ?''',
+                       (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            model_data, result, last_update, status = row
+
+            # Write model data as .keras file and load it
+            path = self.get_lstm_path(ticker)
+            with open(path, 'wb') as file:
+                file.write(model_data)
+            model = load_model(path)
+
+            # Done
+            print("Loaded data! Ticker:\t", ticker)
+            # print("\nLoaded data! Ticker:\t", ticker,
+            #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
+            #     "\nResult:\t\t", result, "\nStatus:\t\t", status)
+            return model, result, last_update, status
+        else:
+            raise ValueError("Model could not be found in the database.")
+    #------------------------------#
+
+    #--- Function: Get all the tickers in db ---#
+    def get_tickers(self):
+        #--- Print tickers from the database
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT ticker FROM model')
+        data = cursor.fetchall()
+        conn.close()
+        tickers = []
+        for row in data:
+            tickers.append(row[0])
+        return tickers
+    #-------------------------------------------#
+
+    #--- Function: Change the status ---#
+    def set_status(self, ticker, status):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE model
+            SET status = ?
+            WHERE ticker = ?''',
+            (status, ticker))
+        conn.commit()
+        conn.close()
+    #-----------------------------------#
+
+    #--- Function: Check the status ---#
+    def get_status(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT status FROM model WHERE ticker = ?', (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]   # Return the status as a string
+        else:
+            raise ValueError("Ticker not found in the database.")
+    #-----------------------------------#
 
     #--- Function: Save Day to DB ---#
     def _save_day(self, day_string):
@@ -113,7 +186,7 @@ class DBInterface:
         cursor = conn.cursor()
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_accuracy (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dailyacc_id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticker TEXT NOT NULL,
             day SMALLINT NOT NULL,
             mape REAL,
@@ -125,13 +198,12 @@ class DBInterface:
 
         # Insert or update the accuracy data
         cursor.execute('''
-            INSERT OR REPLACE INTO accuracy (ticker, day, mape, buy_accuracy, simulated_profit)
+            INSERT OR REPLACE INTO daily_accuracy (ticker, day, mape, buy_accuracy, simulated_profit)
             VALUES (?, ?, ?, ?, ?)''',
             (ticker, day, mape, buy_accuracy, simulated_profit))
         conn.commit()
         conn.close()
     #---------------------------------------#
-
     
     #--- Function: Get the integer ID of the day ---#
     def get_day_id(self, target):
@@ -139,25 +211,25 @@ class DBInterface:
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS day (
-            dayid SMALLINT PRIMARY KEY AUTOINCREMENT,
+            day_id SMALLINT PRIMARY KEY AUTOINCREMENT,
             date TEXT
             );
         ''')
         cursor.execute('''
-            SELECT dayid FROM day WHERE date = ?''',
+            SELECT day_id FROM day WHERE date = ?''',
             (target,))
         row = cursor.fetchone()
 
         if row:
             conn.close()
-            return row[0]  # Return the dayid
+            return row[0]  # Return the day_id
         
         # If the day does not exist, verify we have all the days leading up to it
         # and save all in the database
         else:
-            self._populate_dates(target)
+            self._populate_dates()
             cursor.execute('''
-                SELECT dayid FROM day WHERE date = ?''',
+                SELECT day_id FROM day WHERE date = ?''',
                 (target,))
             row = cursor.fetchone()
             conn.close()
@@ -171,7 +243,7 @@ class DBInterface:
     def today_id(self):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT dayid FROM day ORDER BY dayid DESC LIMIT 1')
+        cursor.execute('SELECT day_id FROM day ORDER BY day_id DESC LIMIT 1')
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -181,197 +253,42 @@ class DBInterface:
             return -1
     #--------------------------------#
 
+    #--- Function: Get string from day id ---#
+    def get_day_string(self, day_id):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT date FROM day WHERE day_id = ?', (day_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]
+        else:
+            raise ValueError("Day ID not found in the database.")
+    #--------------------------------#
+
     #--- Function: Add all missing dates to the database ---#
     def _populate_dates(self):
-        # Get the last day in the database
-        last_day = '2025-01-01'
+        """Populate the database with all dates since the last recorded date."""
+        # Get the last day recorded in the database
         today = self.today_id()
-        if today != -1:
-            last_day = today
-
-        # Get all the days since last
-        import yfinance as yf
-        yf_data = yf.download("AAPL", start=last_day)
-        if yf_data.empty:
-            raise ValueError("Could not pull yfinance data while trying to create dates.")
-        date_list = yf_data.index.tolist()
-
+        date_list = []
+        if today == -1:
+            date_list = yfi.get_all_dates()
+        else:
+            today = self.get_day_string(today)
+            date_list = yfi.get_all_dates(since_date=today)
+        
         # Add all dates
         for date in date_list:
             string_date = date.strftime("%Y-%m-%d")
             self._save_day(string_date)
     #-----------------------------------------------#
 
-    #--- Function: Load from DB ---#
-    def load_model(self, ticker):
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-
-        # Handle blob -> model
-        cursor.execute('''
-                       SELECT model, result, last_update, status
-                       FROM model
-                       WHERE ticker = ?''',
-                       (ticker,))
-        row = cursor.fetchone()
-        conn.close()
-
-        if row:
-            model_data, result, last_update_text, status = row
-
-            # Write model data as .keras file and load it
-            path = self.get_lstm_path(ticker)
-            with open(path, 'wb') as file:
-                file.write(model_data)
-            model = load_model(path)
-
-            # Last update txt -> Timestamp
-            last_update = pd.Timestamp(last_update_text)
-
-            # Done
-            print("Loaded data! Ticker:\t", ticker)
-            # print("\nLoaded data! Ticker:\t", ticker,
-            #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
-            #     "\nResult:\t\t", result, "\nStatus:\t\t", status)
-            return model, result, last_update, status
-        else:
-            raise ValueError("Model could not be found in the database.")
-    #------------------------------#
-
-    #--- Function: drop SQL tables ---#
-    def drop_table(self):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('DROP TABLE IF EXISTS model')
-        conn.commit()
-        conn.close()
-    #------------------------------#
-
-    #--- Function: Get all the tickers in db ---#
-    def get_tickers(self):
-        #--- Print tickers from the database
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT ticker FROM model')
-        data = cursor.fetchall()
-        conn.close()
-        tickers = []
-        for row in data:
-            tickers.append(row[0])
-        return tickers
-    #-------------------------------------------#
-
-    #--- Function: Get most data in db ---#
-    def get_updated(self):
-        #--- Print tickers from the database
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT last_update FROM model')
-        data = cursor.fetchall()
-        conn.close()
-        dates = []
-        for row in data:
-            dates.append(row[0])
-        return dates
-    #-------------------------------------------#
-
-    #--- Function: Change the status ---#
-    def set_status(self, ticker, status):
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE model
-            SET status = ?
-            WHERE ticker = ?''',
-            (status, ticker))
-        conn.commit()
-        conn.close()
-    #-----------------------------------#
-
-    #--- Function: Check the status ---#
-    def get_status(self, ticker):
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT status FROM model WHERE ticker = ?', (ticker,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            return row[0]   # Return the status as a string
-        else:
-            raise ValueError("Ticker not found in the database.")
-    #-----------------------------------#
-
-    #--- Function: set stock as outdated ---#
-    def outdate(self, ticker):
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE model
-            SET last_update = ?
-            WHERE ticker = ?''',
-            ('2024-01-01', ticker))
-        conn.commit()
-        conn.close()
-    #-------------------------------------------#
-
     #--- Function: Perform Some Update ---#
-    def do_version_update(self, instructions):
+    def do_update(self, instructions):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.executescript(instructions)
         conn.commit()
         conn.close()
     #-------------------------------------#
-
-
-# TODO Removed this section due to circular import with Model
-if __name__ == '__main__':
-    # This can be run in the terminal from root directory:
-    #       python -m model.db_interface
-    # Note that epochs roughly equal minutes for 5 models on the AWS server
-    dbi = DBInterface()
-    
-    entry = -1
-    while entry != 0:
-        print('''\n*** ADMIN OPERATIONS MENU ***
-              1. Outdate all models
-              2. Train models - epochs
-              3. Train models - MSE Threshold
-              0. Exit''')
-        entry = input('Please make your selection: ')
-
-        try:
-            #   1 - Outdate Models
-            entry = int(entry)
-            if entry == 1:
-                for ticker in dbi.get_tickers():
-                    dbi.outdate(ticker)
-                print('Outdated all models.')
-
-            #   2 - Train Models by Epoch
-            elif entry == 2:
-                epochs = int(input('How many epochs? '))
-                for ticker in dbi.get_tickers():
-                    print('Training model for ' + ticker + '...')
-                    model = Model(ticker)
-                    model.train(epochs)
-                    print('\nFinished training!')
-            
-            #   3 - Train Models to beat threshold (max 100 epochs)
-            elif entry == 3:
-                epochs = 50
-                threshold = 0.0002
-                for ticker in dbi.get_tickers():
-                    print('Training model for ' + ticker + 
-                          ' until MSE surpasses ' + str(threshold) + '...')
-                    model = Model(ticker)
-                    model.train(epochs, threshold=threshold)
-                    print('\nFinished training!')
-            
-            #   Finished
-            if entry != 0:
-                input('Press any key to continue...')
-
-        except ValueError as e:
-            print('Invalid entry')
-            entry = -1

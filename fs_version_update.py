@@ -47,9 +47,15 @@ def update_fs():
         if 'id' in columns and 'version' in columns:
             print("columns already exist.")
         else:
+            # Rename 'model' column to 'blob'
+            print("\tRenaming column 'model' to 'blob'...", end=' ')
+            cursor.execute("ALTER TABLE model RENAME COLUMN model TO blob;")
+            conn.commit()
+            print("done.")
+
             # Add 'id' column
-            print("\tAdding 'id' column...", end=' ')
-            cursor.execute("ALTER TABLE model ADD COLUMN id INTEGER PRIMARY KEY AUTOINCREMENT;")
+            print("\tAdding 'modelid' column...", end=' ')
+            cursor.execute("ALTER TABLE model ADD COLUMN model_id INTEGER PRIMARY KEY AUTOINCREMENT;")
             conn.commit()
             print("done.")
 
@@ -71,12 +77,14 @@ def update_fs():
             conn.commit()
             print("done.")
 
-        # Create Day table
+        # Step 5: Create Day table
+        print("5. Creating Day table if it doesn't exist...", end=' ')
         result = db.get_day_id('2025-07-02')
         if result != -1:
             print("Day table is up to date!")
+        print("done.")
         
-        
+        # Create
 
     except sqlite3.OperationalError as e:
         print(f"An error occurred while updating the database: {e}")
