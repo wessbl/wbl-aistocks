@@ -3,6 +3,9 @@ from model.model import Model
 import os
 import time
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'static', 'models', 'model.db')
+
 # Keep some logs B)
 import logging
 logging.basicConfig(filename='flask.log', level=logging.DEBUG)
@@ -89,6 +92,27 @@ def predict():
         model = None
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
+
+@app.route('/add_ticker', methods=['POST'])
+def add_ticker():
+    stock_symbol = request.form.get('requested_stock_symbol', '').strip().upper()
+    if not stock_symbol:
+        return jsonify({'error': 'No stock symbol provided'}), 400
+
+    print(f"Adding ticker: {stock_symbol}")
+    try:
+        # Check if the model already exists
+        if stock_symbol in models:
+            return jsonify({'message': f'Model for {stock_symbol} already exists.'}), 200
+        
+        # Create a new model and add it to the models dictionary
+        models[stock_symbol] = Model(stock_symbol)
+        return jsonify({'message': f'Model for {stock_symbol} added successfully.'}), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
 
 #--- First Boot ---#
 if __name__ == '__main__':

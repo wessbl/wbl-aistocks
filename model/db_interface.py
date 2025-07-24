@@ -1,13 +1,13 @@
 import sqlite3
 import os
-import yf_interface as yfi
+from model.yf_interface import YFInterface as yfi
 from keras.models import load_model
 
 class DBInterface:
     # Path to database
     _base_dir = os.path.dirname(os.path.abspath(__file__))
     _db_path = os.path.join(_base_dir, '../static/models/model.db')
-    _lstm_path = os.path.join(_base_dir, '../static/model/')
+    _lstm_path = os.path.join(_base_dir, '../static/models/')
     
     # Verify path
     if not os.path.exists(_db_path):

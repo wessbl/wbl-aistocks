@@ -1,5 +1,5 @@
 import numpy as np
-import yf_interface as yfi
+from model.yf_interface import YFInterface as yfi
 import logging
 import os
 logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
