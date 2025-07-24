@@ -4,7 +4,7 @@ import os
 import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'static', 'models', 'model.db')
+SAVE_PATH = os.path.join(BASE_DIR, 'static', 'models')
 
 # Keep some logs B)
 import logging
@@ -42,17 +42,21 @@ def predict():
     try:
         model = models.get(ticker)
         if model is None:
-            models[ticker] = Model(ticker)
+            models[ticker] = Model(ticker, SAVE_PATH)
             model = models[ticker]
         
-        # Possible states are in_progress, pending, completed
+        # Possible states are new, in_progress, pending, completed
         #   |   STATUS      |     FRONT END     |     BACK END      |
+        #   | new           |   No Image Lookup |  Nothing          |
         #   | in_progress   |   Not affected    |  Updating         |
         #   | pending       |   Needs refresh   |  Update finished  |
         #   | completed     |   Refreshed       |  Update finished  |
         status = model.get_status() # Checks DB
         recommendation = model.recommendation
 
+        if status == 'new':
+            recommendation = 'Model will be trained on the next update (within 24 hours).'
+            
         if status == 'in_progress':
             print('Model is currently being updated')
             # If the model is in progress, we return the last recommendation
@@ -127,9 +131,22 @@ if __name__ == '__main__':
         os.makedirs(mdl_dir)
     
     # Check for version updates
+    print("Checking for version updates...")
     if os.path.exists('fs_version_update.py'):
         import fs_version_update
-        fs_version_update.update_fs()
+        result = fs_version_update.update_fs()
+        if not result:
+            print("Update failed, exiting app.")
+            exit(1)
+        else:
+            print("app.py: Adding models and running model updater...")
+            models['AAPL'] = Model('AAPL', SAVE_PATH)
+            models['GOOGL'] = Model('GOOGL', SAVE_PATH)
+            models['META'] = Model('META', SAVE_PATH)
+            models['AMZN'] = Model('AMZN', SAVE_PATH)
+            models['NFLX'] = Model('NFLX', SAVE_PATH)
+            import model.updater # This will run the updater.py script
+            print("app.py: Update completed successfully.")
     
     app.run(debug=False)
 #---------------------#

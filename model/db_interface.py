@@ -4,21 +4,31 @@ from model.yf_interface import YFInterface as yfi
 from keras.models import load_model
 
 class DBInterface:
-    # Path to database
-    _base_dir = os.path.dirname(os.path.abspath(__file__))
-    _db_path = os.path.join(_base_dir, '../static/models/model.db')
-    _lstm_path = os.path.join(_base_dir, '../static/models/')
-    
-    # Verify path
-    if not os.path.exists(_db_path):
-        raise FileNotFoundError(f"Database file not found at {_db_path}")
+    """Database interface for managing LSTM models and predictions."""
+    # Path to saved models/database
+    _db_path = None
+    _lstm_path = None
+
+    #--- Constructor: Initialize the DBInterface with the path to the database ---#
+    def __init__(self, SAVE_PATH):
+        # Set the database path
+        self._db_path = os.path.join(SAVE_PATH, 'futurestock.db')
+        self._lstm_path = SAVE_PATH
+
+        # Verify the database path exists
+        if not os.path.exists(self._db_path):
+            raise FileNotFoundError(f"Database file not found at {self._db_path}")
+        # Verify the LSTM path exists
+        if not os.path.exists(self._lstm_path):
+            raise FileNotFoundError(f"LSTM path not found at {self._lstm_path}")
+    #-----------------------------------------------------------------------------#
     
     #--- Function: Get path to LSTM file ---#
     def get_lstm_path(self, ticker):
         return os.path.join(self._lstm_path, ticker + '.keras')
     
     #--- Function: Save model to DB ---#
-    def save_model(self, ticker, model, last_update, result=''):
+    def save_model(self, ticker, model, last_update=None, result=''):
         # Save model as file
         path = self.get_lstm_path(ticker)
         model._model.save(path)
@@ -28,18 +38,20 @@ class DBInterface:
             model_binary = f.read()
 
         # Get text version of last_update
-        last_update_txt = last_update.strftime("%Y-%m-%d")
+        last_update_txt = None
+        if last_update is not None:
+            last_update_txt = last_update.strftime("%Y-%m-%d")
 
         # Database connection
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS model (
-            model_id SMALLINT PRIMARY KEY AUTOINCREMENT,
+            model_id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticker TEXT UNIQUE NOT NULL,
             blob BLOB,
-            result TEXT,
-            last_update SMALLINT,
+            result FLOAT,
+            last_update INTEGER,
             status TEXT,
             version SMALLINT DEFAULT 0
             )
@@ -75,7 +87,8 @@ class DBInterface:
             path = self.get_lstm_path(ticker)
             with open(path, 'wb') as file:
                 file.write(model_data)
-            model = load_model(path)
+            model = load_model(path, compile=False)
+            model.compile(optimizer='adam', loss='mean_squared_error')
 
             # Done
             print("Loaded data! Ticker:\t", ticker)
@@ -192,7 +205,7 @@ class DBInterface:
             mape REAL,
             buy_accuracy REAL,
             simulated_profit REAL,
-            UNIQUE(ticker, date)
+            UNIQUE(ticker, day)
         )
         ''')
 
@@ -211,7 +224,7 @@ class DBInterface:
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS day (
-            day_id SMALLINT PRIMARY KEY AUTOINCREMENT,
+            day_id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT
             );
         ''')
@@ -280,8 +293,7 @@ class DBInterface:
         
         # Add all dates
         for date in date_list:
-            string_date = date.strftime("%Y-%m-%d")
-            self._save_day(string_date)
+            self._save_day(date)
     #-----------------------------------------------#
 
     #--- Function: Perform Some Update ---#

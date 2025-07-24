@@ -1,3 +1,4 @@
+import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ class Model:
     _lstm = None
     _prediction = None
     _mirror = None
-    _db = DBInterface()
+    _db = None
 
     # Paths
     img1_path = None
@@ -22,28 +23,30 @@ class Model:
     _lstm_path = None
     
     #--- Constructor ---#
-    def __init__(self, ticker):
+    def __init__(self, ticker, SAVE_PATH):
         self.ticker = ticker
+        self._db = DBInterface(SAVE_PATH)
 
         # Create paths
-        self._lstm_path = 'static/models/' + ticker + '.keras'
-        self._lstm_path = 'static/models/' + ticker + '.keras'
-        self.img1_path = 'static/images/' + ticker + 'pred.png'
-        self.img2_path = 'static/images/' + ticker + 'mirr.png'
+        self._lstm_path = os.path.join(SAVE_PATH, ticker, '.keras')
+        self.img1_path = os.path.join(SAVE_PATH, ticker, 'pred.png')
+        self.img2_path = os.path.join(SAVE_PATH, ticker, 'mirr.png')
 
         # First, try to load an existing model
         try:
             keras_model, self.recommendation, last_update, self._status = self._db.load_model(ticker)
-            self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
+            if self._status == 'new':
+                print(f"Model for {ticker} is new, training will start on the next update.")
+            else: 
+                self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
 
         except Exception as e:
             # print(e)
             # print("Error:\t", str(e))
-            print("Could not find ticker in database:\t", ticker)
-            print("Creating new model...")
-            # Train a new model on 10+ years of data
+            print(f"Could not find {ticker} in database. Creating new model...", end=' ')
             self._lstm = LSTMModel(ticker)
-            self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
+            self._db.save_model(self.ticker, self._lstm)
+            print("done.")
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
@@ -51,8 +54,13 @@ class Model:
         # Make prediction (data) & recommendation (text)
         print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
-        rec = self._lstm.buy_or_sell(prediction)
-        self.recommendation = rec[1]  # Get the recommendation text
+        percent = self._lstm.percentage_change(prediction)
+        percent = str(f"{percent:.2f}")
+        buy = percent > 0
+        if buy:
+            self.recommendation = "<b>Buy</b><br>AIStockHelper says this stock will change by " + percent + "%."
+        else:
+            self.recommendation = "<b>Sell</b><br>AIStockHelper says this stock will change by " + percent + "%."
 
         # Save the prediction to the database
         today = self._db.today_id()
@@ -61,6 +69,9 @@ class Model:
             return
         for i in range(len(prediction)):
             self._db.save_prediction(self.ticker, today, today+i, prediction[i], rec[0])
+        
+        # Save buy/sell recommendation to the database
+        # TODO save 'buy' variable
         
         # Create images
         mirror = self._lstm.mirror_data()

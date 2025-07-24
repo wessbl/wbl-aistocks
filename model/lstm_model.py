@@ -7,7 +7,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'    # Suppresses INFO and WARNING messag
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'   # Turn off oneDNN custom operations
 # import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Dense, LSTM
+from keras.layers import Dense, LSTM, Input
 from sklearn.preprocessing import MinMaxScaler
 
 class LSTMModel:
@@ -40,8 +40,8 @@ class LSTMModel:
         else:
             # Get data & train brand-new model
             self.ticker = ticker
-            self.preprocess('2025-01-01')  # Get data from start date to last close
-            print("Training new model...")
+            self.status = 'new'
+            # self.preprocess(self._start_date)  #TODO remove after testing
             self._model = self._create_model(model)
     #------------------------------#
 
@@ -79,10 +79,11 @@ class LSTMModel:
 
     #--- Function: Set model properties and compile ---#
     def _create_model(self, model):
+        # TODO do some quick testing to find which values work best for each ticker
         # Build and compile the LSTM, if needed
         if (model == None):
             model = Sequential()
-            model.add(LSTM(200, return_sequences=True, input_shape=(self.time_step, 1)))
+            model.add(Input(shape=(self.time_step, 1)))
             model.add(LSTM(200))
             model.add(Dense(128))
             model.add(Dense(32))
@@ -94,7 +95,6 @@ class LSTMModel:
         # Train model
         # model.fit(self.X, self.y, epochs=self._epochs, batch_size=64)
         # self.last_update = yfi.last_close()
-        print("Model has been created, but not trained yet.")
         return model
     #-----------------------------------------------#
 
@@ -177,17 +177,10 @@ class LSTMModel:
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#
-    def buy_or_sell(self, prediction):
+    def percentage_change(self, prediction):
         last_price = self.orig_data[len(self.orig_data) - 1][0]
         last_predicted = prediction[len(prediction) - 1]
-        percent = (last_predicted * 100 / last_price)
-
-        if last_price <= last_predicted:
-            percent = percent - 100
-            percent = str(f"{percent:.2f}")
-            return (True, "<b>Buy</b><br>AIStockHelper says this stock will go up in value by " + percent + "%.")
-        else:
-            percent = 100 - percent
-            percent = str(f"{percent:.2f}")
-            return (False, "<b>Sell</b><br>AIStockHelper says this stock will go down in value by " + percent + "%.")
+        ratio = (last_predicted / last_price)
+        percent = (ratio - 1) * 100
+        return percent
     #---------------------------------------------------------#

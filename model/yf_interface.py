@@ -9,11 +9,7 @@ class YFInterface:
         :return: A list of dates as strings in 'YYYY-MM-DD' format.
         """
         # Download data from yfinance
-        data = yf.download("AAPL", start=since_date, progress=False)
-        
-        # Check if data is empty
-        if data.empty:
-            raise ValueError("No data found for the specified date range.")
+        data = yf.download("AAPL", period="1d", start=since_date, progress=False, auto_adjust=True)
         
         # Extract dates and convert to string format
         dates = data.index.strftime('%Y-%m-%d').tolist()
@@ -26,7 +22,7 @@ class YFInterface:
         """ Check if the market is closed today by checking if yfinance has a close date for today."""
 
         # Check if yfinance has a close date for today
-        df = yf.download("AAPL", period="1d", interval="1d", progress=False)
+        df = yf.download("AAPL", period="1d", interval="1d", progress=False, auto_adjust=True)
         if df.empty:
             print("Market has not closed yet today.")                #TODO need to return results
         else:
@@ -46,9 +42,9 @@ class YFInterface:
 
         df = None
         if end_date is None:
-            df = yf.download(ticker, interval="1d", start=start_date, progress=False)
+            df = yf.download(ticker, interval="1d", start=start_date, progress=False, auto_adjust=True)
         else:
-            df = yf.download(ticker, interval="1d", start=start_date, end=end_date, progress=False)
+            df = yf.download(ticker, interval="1d", start=start_date, end=end_date, progress=False, auto_adjust=True)
         if (len(df) == 0): raise ValueError("Cannot download from yfinance")
 
         # Create global orig_data, scaler, scaled_data, X, y

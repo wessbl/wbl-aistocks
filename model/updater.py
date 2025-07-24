@@ -1,8 +1,14 @@
+import os
 from model.db_interface import DBInterface
 from model.model import Model
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVE_PATH = os.path.normpath(os.path.join(BASE_DIR, '..', 'static', 'models'))
+
+#TODO check why the update timer starting this class late...
+
 print("*** Beginning Scheduled Update ***")
-db = DBInterface()
+db = DBInterface(SAVE_PATH)
 tickers = db.get_tickers()
 
 # Prepare the day
@@ -12,7 +18,7 @@ db.get_day_id('2099-01-01')  # This will ensure the day table is up to date
 
 for ticker in tickers:
     print(f"Updating model for {ticker}...")
-    model = Model(ticker)
+    model = Model(ticker, SAVE_PATH)
     if model is None:
         # Train the model up to 2025-01-01
         model.train(10, 0.0002)
