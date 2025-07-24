@@ -33,7 +33,7 @@ def last_close():
 #------------------------------------------------------#
 
 #--- Function: Get the latest close prices for a ticker ---#
-def get_close_prices(ticker, start_date):
+def get_close_prices(ticker, start_date, end_date=None):
     """"""
     # TODO remove after testing
     # # Get all data from start through last close (yf excludes end date)
@@ -43,7 +43,11 @@ def get_close_prices(ticker, start_date):
     # else: 
     #     df = yf.download(self.ticker, start=self._start_date, end=today)
 
-    df = yf.download(ticker, interval="1d", start=start_date, progress=False)
+    df = None
+    if end_date is None:
+        df = yf.download(ticker, interval="1d", start=start_date, progress=False)
+    else:
+        df = yf.download(ticker, interval="1d", start=start_date, end=end_date, progress=False)
     if (len(df) == 0): raise ValueError("Cannot download from yfinance")
 
     # Create global orig_data, scaler, scaled_data, X, y

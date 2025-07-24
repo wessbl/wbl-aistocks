@@ -37,8 +37,8 @@ class Model:
             self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
 
         except Exception as e:
-            print(e)
-            print("Error:\t", str(e))
+            # print(e)
+            # print("Error:\t", str(e))
             print("Could not find ticker in database:\t", ticker)
             print("Creating new model...")
             # Train a new model on 10+ years of data
@@ -75,7 +75,7 @@ class Model:
         dividing_line = _lstm.time_step - 1
         end = dividing_line + len(prediction)
         date = _db.get_day_string(_db.today_id())
-        plt.figure(figsize=(6, 3)) # TODO check new size
+        plt.figure(figsize=(6, 3))
         plt.title(f'Prediction - {_lstm.ticker}')
         plt.axvline(x=dividing_line, color='grey', linestyle=':', label=date)
         plt.plot(zoom_data, label="Actual Price")
@@ -94,7 +94,7 @@ class Model:
         end = start + len(mirror)
 
         # Create matplot
-        plt.figure(figsize=(6, 3)) # TODO check new size
+        plt.figure(figsize=(6, 3))
         plt.title(f'Model Against Actual Price - {model.ticker}')
         plt.plot(model.orig_data, label="Actual Price")
         plt.plot(np.arange(start, end), mirror, label='Model Prediction')
@@ -115,8 +115,6 @@ class Model:
         self._set_status(1)
         # Train, generate output, and save to DB
         self._lstm.train(epochs, mse_threshold=threshold)
-
-        # TODO 0.7 - Save the closing price
 
         # TODO 0.8 - Calculate accuracy here
 
