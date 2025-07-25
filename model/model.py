@@ -23,22 +23,22 @@ class Model:
     _lstm_path = None
     
     #--- Constructor ---#
-    def __init__(self, ticker, SAVE_PATH):
+    def __init__(self, ticker, MODELS_PATH, IMG_PATH):
         self.ticker = ticker
-        self._db = DBInterface(SAVE_PATH)
+        self._db = DBInterface(MODELS_PATH)
 
         # Create paths
-        self._lstm_path = os.path.join(SAVE_PATH, ticker, '.keras')
-        self.img1_path = os.path.normpath(os.path.join(SAVE_PATH, '..', 'images', (ticker + 'pred.png')))
-        self.img2_path = os.path.normpath(os.path.join(SAVE_PATH, '..', 'images', (ticker + 'mirr.png')))
+        self._lstm_path = os.path.join(MODELS_PATH, ticker, '.keras')
+        self.img1_path = os.path.join(IMG_PATH, (ticker + 'pred.png'))
+        self.img2_path = os.path.join(IMG_PATH, (ticker + 'mirr.png'))
 
         # First, try to load an existing model
         try:
             keras_model, self.recommendation, last_update, self._status = self._db.load_model(ticker)
-            if self._status == 'new':
-                print(f"Model for {ticker} is new, training will start on the next update.")
-            else: 
-                self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
+            # if self._status == 'new':
+            #     self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
+            # else: 
+            self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
 
         except Exception as e:
             # If the model doesn't exist, create a new one
@@ -47,6 +47,9 @@ class Model:
             self._lstm = LSTMModel(ticker)
             self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
+        
+        #TODO remove debug print
+        print(f"Model: {ticker}\tlstm: {self._lstm}\tstatus: {self._status}")
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
@@ -134,7 +137,7 @@ class Model:
         # TODO 0.8 - Calculate accuracy here
 
         self.generate_output()
-        self._db.save_model(self.ticker, self._lstm.last_update, self.recommendation, 'pending')
+        self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation, 'pending')
         self._status = 'pending'
     #----------------------------------------------#
 

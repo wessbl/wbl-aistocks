@@ -4,7 +4,8 @@ import os
 import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SAVE_PATH = os.path.join(BASE_DIR, 'static', 'models')
+MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models')
+IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
 # Keep some logs B)
 import logging
@@ -42,7 +43,7 @@ def predict():
     try:
         model = models.get(ticker)
         if model is None:
-            models[ticker] = Model(ticker, SAVE_PATH)
+            models[ticker] = Model(ticker, MODELS_PATH, IMG_PATH) # TODO create a shallow copy that doesn't read/write to keras file
             model = models[ticker]
         
         # Possible states are new, in_progress, pending, completed
@@ -65,7 +66,7 @@ def predict():
         elif status == 'pending':
             print('Model has been updated, refreshing now...'),
             models.pop(ticker)
-            models[ticker] = Model(ticker, SAVE_PATH)
+            models[ticker] = Model(ticker, MODELS_PATH, IMG_PATH)
             model = models[ticker]
             model.update_completed()
             recommendation = model.recommendation
@@ -77,8 +78,10 @@ def predict():
         else: raise ValueError(f"Unknown status: {status}")
 
         # Prepare image paths
-        img1_path = model.img1_path.replace('\\', '/')
-        img2_path = model.img2_path.replace('\\', '/')
+        img1_path = 'static/images/' + ticker + 'pred.png'
+        img1_path = img1_path.replace('\\', '/')
+        img2_path = 'static/images/' + ticker + 'mirr.png'
+        img2_path = img2_path.replace('\\', '/')
 
         # Return the recommendation and image paths
         response = jsonify({
@@ -110,7 +113,7 @@ def add_ticker():
             return jsonify({'message': f'Model for {stock_symbol} already exists.'}), 200
         
         # Create a new model and add it to the models dictionary
-        models[stock_symbol] = Model(stock_symbol, SAVE_PATH)
+        models[stock_symbol] = Model(stock_symbol, MODELS_PATH, IMG_PATH)
         return jsonify({'message': f'Model for {stock_symbol} added successfully.'}), 200
     
     except Exception as e:
@@ -140,11 +143,11 @@ if __name__ == '__main__':
             exit(1)
         else:
             print("app.py: Adding models and running model updater...")
-            models['AAPL'] = Model('AAPL', SAVE_PATH)
-            models['GOOGL'] = Model('GOOGL', SAVE_PATH)
-            models['META'] = Model('META', SAVE_PATH)
-            models['AMZN'] = Model('AMZN', SAVE_PATH)
-            models['NFLX'] = Model('NFLX', SAVE_PATH)
+            models['AAPL'] = Model('AAPL', MODELS_PATH, IMG_PATH)
+            models['GOOGL'] = Model('GOOGL', MODELS_PATH, IMG_PATH)
+            models['META'] = Model('META', MODELS_PATH, IMG_PATH)
+            models['AMZN'] = Model('AMZN', MODELS_PATH, IMG_PATH)
+            models['NFLX'] = Model('NFLX', MODELS_PATH, IMG_PATH)
             # TODO: Uncomment the next line to run the updater immediately
             # import model.updater # This will run the updater.py script
             print("app.py: Update completed successfully.")
