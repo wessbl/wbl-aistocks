@@ -56,8 +56,8 @@ def predict():
 
         if status == 'new':
             recommendation = 'Model will be trained on the next update (within 24 hours).'
-            
-        if status == 'in_progress':
+
+        elif status == 'in_progress':
             print('Model is currently being updated')
             # If the model is in progress, we return the last recommendation
             recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
@@ -65,7 +65,7 @@ def predict():
         elif status == 'pending':
             print('Model has been updated, refreshing now...'),
             models.pop(ticker)
-            models[ticker] = Model(ticker)
+            models[ticker] = Model(ticker, SAVE_PATH)
             model = models[ticker]
             model.update_completed()
             recommendation = model.recommendation
@@ -110,7 +110,7 @@ def add_ticker():
             return jsonify({'message': f'Model for {stock_symbol} already exists.'}), 200
         
         # Create a new model and add it to the models dictionary
-        models[stock_symbol] = Model(stock_symbol)
+        models[stock_symbol] = Model(stock_symbol, SAVE_PATH)
         return jsonify({'message': f'Model for {stock_symbol} added successfully.'}), 200
     
     except Exception as e:
@@ -145,7 +145,8 @@ if __name__ == '__main__':
             models['META'] = Model('META', SAVE_PATH)
             models['AMZN'] = Model('AMZN', SAVE_PATH)
             models['NFLX'] = Model('NFLX', SAVE_PATH)
-            import model.updater # This will run the updater.py script
+            # TODO: Uncomment the next line to run the updater immediately
+            # import model.updater # This will run the updater.py script
             print("app.py: Update completed successfully.")
     
     app.run(debug=False)

@@ -29,8 +29,8 @@ class Model:
 
         # Create paths
         self._lstm_path = os.path.join(SAVE_PATH, ticker, '.keras')
-        self.img1_path = os.path.join(SAVE_PATH, ticker, 'pred.png')
-        self.img2_path = os.path.join(SAVE_PATH, ticker, 'mirr.png')
+        self.img1_path = os.path.normpath(os.path.join(SAVE_PATH, '..', 'images', (ticker + 'pred.png')))
+        self.img2_path = os.path.normpath(os.path.join(SAVE_PATH, '..', 'images', (ticker + 'mirr.png')))
 
         # First, try to load an existing model
         try:
@@ -41,11 +41,11 @@ class Model:
                 self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
 
         except Exception as e:
-            # print(e)
-            # print("Error:\t", str(e))
+            # If the model doesn't exist, create a new one
+            print(f"Error loading model for {ticker}: {e}")
             print(f"Could not find {ticker} in database. Creating new model...", end=' ')
             self._lstm = LSTMModel(ticker)
-            self._db.save_model(self.ticker, self._lstm)
+            self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
     #-------------------------------#
     
@@ -55,8 +55,8 @@ class Model:
         print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
         percent = self._lstm.percentage_change(prediction)
-        percent = str(f"{percent:.2f}")
         buy = percent > 0
+        percent = str(f"{percent:.2f}")
         if buy:
             self.recommendation = "<b>Buy</b><br>AIStockHelper says this stock will change by " + percent + "%."
         else:
@@ -68,7 +68,7 @@ class Model:
             print("Error: Could not get today's day ID from the database.")
             return
         for i in range(len(prediction)):
-            self._db.save_prediction(self.ticker, today, today+i, prediction[i], rec[0])
+            self._db.save_prediction(self.ticker, today, today+i, prediction[i], buy)
         
         # Save buy/sell recommendation to the database
         # TODO save 'buy' variable
@@ -85,7 +85,7 @@ class Model:
         zoom_data = _lstm.orig_data[-_lstm.time_step:]
         dividing_line = _lstm.time_step - 1
         end = dividing_line + len(prediction)
-        date = _db.get_day_string(_db.today_id())
+        date = self._db.get_day_string(self._db.today_id())
         plt.figure(figsize=(6, 3))
         plt.title(f'Prediction - {_lstm.ticker}')
         plt.axvline(x=dividing_line, color='grey', linestyle=':', label=date)
@@ -94,6 +94,10 @@ class Model:
         plt.legend()
         
         # Save image
+        # TODO remove, shouldn't be needed
+        if not os.path.exists(os.path.dirname(self.img1_path)):
+            print("Directory doesn't exist??!")
+            raise FileNotFoundError(f"Directory for {self.img1_path} does not exist.")
         plt.savefig(self.img1_path)
         plt.close()
     #------------------------------------------#
@@ -130,9 +134,8 @@ class Model:
         # TODO 0.8 - Calculate accuracy here
 
         self.generate_output()
-        self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation)
-        # Set status to pending (for front-end refresh)
-        self._set_status(2)
+        self._db.save_model(self.ticker, self._lstm.last_update, self.recommendation, 'pending')
+        self._status = 'pending'
     #----------------------------------------------#
 
     #--- Function: Change status to completed ---#

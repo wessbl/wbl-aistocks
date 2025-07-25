@@ -8,6 +8,15 @@ old_db = os.path.join(SAVE_PATH, 'models.db')
 new_db = os.path.join(SAVE_PATH, 'futurestock.db')
 db = db(SAVE_PATH)
 
+# Hollow out the database
+if False:  # Set to True if needed
+    print("Hollowing out the database...", end=' ')
+    cursor.execute("DROP TABLE IF EXISTS model;")
+    cursor.execute("DROP TABLE IF EXISTS prediction;")
+    cursor.execute("DROP TABLE IF EXISTS daily_accuracy;")
+    cursor.execute("DROP TABLE IF EXISTS day;")
+    print("done.")
+
 # Update to 0.7 - db_overhaul
 def update_fs():
     print("***Updating to version 0.7 - db_overhaul***")
@@ -15,7 +24,7 @@ def update_fs():
     # Surround with try-except to handle potential errors
     try:
         # Step 1: Rename DB file
-        print("1. Renaming models.db to futurestock.db...", end=' ')
+        print("\t1. Renaming models.db to futurestock.db...", end=' ')
         try:
             os.rename(old_db, new_db)
             print("done.")
@@ -23,15 +32,13 @@ def update_fs():
             print("already renamed.")
 
         # Step 2: Connect to the new DB
-        print("2. Connecting to the new database...", end=' ')
+        print("\t2. Connecting to the new database...", end=' ')
         conn = sqlite3.connect(new_db)
         cursor = conn.cursor()
         print("done.")
 
         # Step 3: Create 'model' table
-        # TODO remove this
-        cursor.execute("DROP TABLE IF EXISTS model;")
-        print("3. Creating model table...", end=' ')
+        print("\t3. Creating model table...", end=' ')
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='model';")
         if cursor.fetchone() is not None:
             print("Model table already exists.")
@@ -40,18 +47,17 @@ def update_fs():
                 CREATE TABLE IF NOT EXISTS model (
                 model_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker TEXT UNIQUE NOT NULL,
-                blob BLOB,
-                result TEXT,
+                result REAL,
                 last_update INTEGER,
                 status TEXT,
-                version INTEGER DEFAULT 0
+                version SMALLINT DEFAULT 0
                 )
             ''')
             conn.commit()
             print("done.")
         
         # Step 4: Copy data from old "models" table to new "model" table
-        print("4. Copying data from old 'models' table to new 'model' table...", end=' ')
+        print("\t4. Copying data from old 'models' table to new 'model' table...", end=' ')
         # Check if 'model' already has entries
         cursor.execute("SELECT COUNT() FROM model;")
         count = cursor.fetchone()[0]
@@ -64,29 +70,27 @@ def update_fs():
                 # Check if the data was copied
                 cursor.execute("SELECT COUNT() FROM model;")
                 if cursor.fetchone()[0] == 0:
-                    print("Error: No data copied from 'models' to 'model'. The models will eventually be recreated.")
+                    print("Error: Couldn't copy.")
                 else: print("done.")
             except sqlite3.OperationalError as e:
-                print("Error: No data copied from 'models' to 'model'. The models will eventually be recreated.")
+                print("Error: Couldn't copy.")
 
         # Step 5: Drop old "models" table
-        print("5. Dropping old 'models' table...", end=' ')
+        print("\t5. Dropping old 'models' table...", end=' ')
         cursor.execute("DROP TABLE IF EXISTS models;")
         conn.commit()
         print("done.")
 
         # Step 6 Create Day table
-        print("6. Creating Day table if it doesn't exist...", end=' ')
+        print("\t6. Creating Day table if it doesn't exist...", end=' ')
         result = db.get_day_id('2025-07-24')
         if result != -1:
             print("Day table is up to date!")
-        print("done.")
+        else: 
+            print("Error: Couldn't find date.")
         
         # Step 7: Create prediction table if it doesn't exist
-        #TODO remove this
-        cursor.execute("DROP TABLE IF EXISTS prediction;")
-
-        print("7. Creating prediction table if it doesn't exist...", end=' ')
+        print("\t7. Creating prediction table if it doesn't exist...", end=' ')
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS prediction (
                 predict_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,10 +107,7 @@ def update_fs():
         print("done.")
 
         # Step 8: Create daily_accuracy table if it doesn't exist
-        #TODO remove this
-        cursor.execute("DROP TABLE IF EXISTS daily_accuracy;")
-
-        print("8. Creating daily_accuracy table if it doesn't exist...", end=' ')
+        print("\t8. Creating daily_accuracy table if it doesn't exist...", end=' ')
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_accuracy (
             dailyacc_id INTEGER PRIMARY KEY AUTOINCREMENT,

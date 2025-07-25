@@ -137,7 +137,7 @@ class LSTMModel:
     #--- Function: Check if the model needs to be updated ---#
     def needs_update(self):
         # If the model is None, it needs to be updated
-        if self._model is None or self.last_update.date() < yfi.last_close():
+        if self._model is None or self.last_update is None or self.last_update.date() < yfi.last_close():
             return True
 
         # Otherwise, no update needed
@@ -173,7 +173,7 @@ class LSTMModel:
                 else:
                     print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
 
-        self.last_update = self.last_close()
+        self.last_update = yfi.last_close()
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#

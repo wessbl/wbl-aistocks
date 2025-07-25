@@ -28,14 +28,10 @@ class DBInterface:
         return os.path.join(self._lstm_path, ticker + '.keras')
     
     #--- Function: Save model to DB ---#
-    def save_model(self, ticker, model, last_update=None, result=''):
+    def save_model(self, ticker, model, last_update=None, result='', status='pending'):
         # Save model as file
         path = self.get_lstm_path(ticker)
         model._model.save(path)
-
-        # Read the model file as binary
-        with open(path, 'rb') as f:
-            model_binary = f.read()
 
         # Get text version of last_update
         last_update_txt = None
@@ -49,8 +45,7 @@ class DBInterface:
             CREATE TABLE IF NOT EXISTS model (
             model_id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticker TEXT UNIQUE NOT NULL,
-            blob BLOB,
-            result FLOAT,
+            result REAL,
             last_update INTEGER,
             status TEXT,
             version SMALLINT DEFAULT 0
@@ -59,21 +54,27 @@ class DBInterface:
 
         # Store the model in the database
         cursor.execute('''
-            INSERT OR REPLACE INTO model (ticker, blob, result, last_update, status)
-            VALUES (?, ?, ?, ?, ?)''',
-            (ticker, model_binary, result, last_update_txt, 'pending'))    # Pending: front-end needs to be refreshed
+            INSERT OR REPLACE INTO model (ticker, result, last_update, status)
+            VALUES (?, ?, ?, ?)''',
+            (ticker, result, last_update_txt, status))
         conn.commit()
         conn.close()
     #------------------------------#
 
     #--- Function: Load from DB ---#
     def load_model(self, ticker):
+        # Load the model from file
+        path = self.get_lstm_path(ticker)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Model file not found at {path}")
+        model = load_model(path, compile=False)
+        model.compile(optimizer='adam', loss='mean_squared_error')
+
+        # Get model data from the database
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-
-        # Handle blob -> model
         cursor.execute('''
-                       SELECT blob, result, last_update, status
+                       SELECT result, last_update, status
                        FROM model
                        WHERE ticker = ?''',
                        (ticker,))
@@ -81,16 +82,7 @@ class DBInterface:
         conn.close()
 
         if row:
-            model_data, result, last_update, status = row
-
-            # Write model data as .keras file and load it
-            path = self.get_lstm_path(ticker)
-            with open(path, 'wb') as file:
-                file.write(model_data)
-            model = load_model(path, compile=False)
-            model.compile(optimizer='adam', loss='mean_squared_error')
-
-            # Done
+            result, last_update, status = row
             print("Loaded data! Ticker:\t", ticker)
             # print("\nLoaded data! Ticker:\t", ticker,
             #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
