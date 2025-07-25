@@ -8,14 +8,8 @@ old_db = os.path.join(SAVE_PATH, 'models.db')
 new_db = os.path.join(SAVE_PATH, 'futurestock.db')
 db = db(SAVE_PATH)
 
-# Hollow out the database
-if False:  # Set to True if needed
-    print("Hollowing out the database...", end=' ')
-    cursor.execute("DROP TABLE IF EXISTS model;")
-    cursor.execute("DROP TABLE IF EXISTS prediction;")
-    cursor.execute("DROP TABLE IF EXISTS daily_accuracy;")
-    cursor.execute("DROP TABLE IF EXISTS day;")
-    print("done.")
+# If you would like to scrub the database, set this to True
+SCRUB_DB = False
 
 # Update to 0.7 - db_overhaul
 def update_fs():
@@ -36,6 +30,16 @@ def update_fs():
         conn = sqlite3.connect(new_db)
         cursor = conn.cursor()
         print("done.")
+
+        # Scrub the database (optional)
+        if SCRUB_DB:  # Set to True if needed
+            print("\nBONUS: Scrubbing the database...", end=' ')
+            cursor.execute("DROP TABLE IF EXISTS model;")
+            cursor.execute("DROP TABLE IF EXISTS prediction;")
+            cursor.execute("DROP TABLE IF EXISTS daily_accuracy;")
+            cursor.execute("DROP TABLE IF EXISTS day;")
+            conn.commit()
+            print("done.")
 
         # Step 3: Create 'model' table
         print("\t3. Creating model table...", end=' ')

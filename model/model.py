@@ -47,9 +47,6 @@ class Model:
             self._lstm = LSTMModel(ticker)
             self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
-        
-        #TODO remove debug print
-        print(f"Model: {ticker}\tlstm: {self._lstm}\tstatus: {self._status}")
     #-------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#

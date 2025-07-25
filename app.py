@@ -56,7 +56,12 @@ def predict():
         recommendation = model.recommendation
 
         if status == 'new':
-            recommendation = 'Model will be trained on the next update (within 24 hours).'
+            recommendation = 'The AI will be trained on this ticker during the next update<br>(within 24 hours).'
+            response = jsonify({
+                'result': recommendation,
+            })
+            response.headers['Cache-Control'] = 'no-store'
+            return response
 
         elif status == 'in_progress':
             print('Model is currently being updated')
@@ -142,7 +147,8 @@ if __name__ == '__main__':
             print("Update failed, exiting app.")
             exit(1)
         else:
-            print("app.py: Adding models and running model updater...")
+            # print("app.py: Adding models and running model updater...")
+            # Make sure models are added
             models['AAPL'] = Model('AAPL', MODELS_PATH, IMG_PATH)
             models['GOOGL'] = Model('GOOGL', MODELS_PATH, IMG_PATH)
             models['META'] = Model('META', MODELS_PATH, IMG_PATH)
@@ -150,7 +156,7 @@ if __name__ == '__main__':
             models['NFLX'] = Model('NFLX', MODELS_PATH, IMG_PATH)
             # TODO: Uncomment the next line to run the updater immediately
             # import model.updater # This will run the updater.py script
-            print("app.py: Update completed successfully.")
+            # print("app.py: Update completed successfully.")
     
     app.run(debug=False)
 #---------------------#
