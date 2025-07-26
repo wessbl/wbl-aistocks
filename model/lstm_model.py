@@ -140,7 +140,6 @@ class LSTMModel:
 
     #--- Function: Train the model on the latest closing price ---#
     def train(self, epochs, end_date=None, mse_threshold=0):
-        global model
         if end_date is None:
             self.preprocess()
         else:

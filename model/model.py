@@ -75,9 +75,6 @@ class Model:
         for i in range(1, len(prediction)): # Skip the first prediction (current price)
             self._db.save_prediction(self.ticker, today, today+i, float(prediction[i]), bool(buy))
         
-        # Save buy/sell recommendation to the database
-        # TODO save 'buy' variable
-        
         # Create images
         mirror = self._lstm.mirror_data()
         self._generate_prediction(self._lstm, prediction)
@@ -126,18 +123,30 @@ class Model:
 
     #--- Function: Train model further ---#
     def train(self, epochs=5, threshold=0):
-        # Check if the model needs to be updated
-        if not self._lstm.needs_update():
-            print(f"Model for {self.ticker} is up-to-date, no training needed.")
-            return
-        # Set status to in_progress
-        self._set_status(1)
-        # Train, generate output, and save to DB
-        self._lstm.train(epochs, mse_threshold=threshold)
+        # TODO get all the data from yf and take it one day at a time
+        print(f"Model status: {self._lstm.status}") # TODO remove debug print
+        # if status is 'new', train the model up to 2025-01-01 then have it predict every day after
+        if self._lstm.status == 'new':
+            days = self._db.all_days()
+            self._lstm.train(50, days[0], mse_threshold=threshold)
+            for day in days[1:]:
+                print(f"Training model for {self.ticker} on {day}...") # TODO remove debug print
+                self._lstm.train(1, day)
+                self.generate_output()
+                # TODO 0.8 - Calculate accuracy here
+            
+        else:
+            # Check if the model needs to be updated
+            if not self._lstm.needs_update():
+                print(f"Model for {self.ticker} is up-to-date, no training needed.")
+                return
+            # Set status to in_progress
+            self._set_status(1)
+            # Train, generate output, and save to DB
+            self._lstm.train(epochs, mse_threshold=threshold)
 
-        # TODO 0.8 - Calculate accuracy here
-
-        self.generate_output()
+            # TODO 0.8 - Calculate accuracy here
+            self.generate_output()
         self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation, 'pending')
         self._status = 'pending'
     #----------------------------------------------#

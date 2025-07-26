@@ -20,11 +20,12 @@ db = DBInterface(MODELS_PATH)
 db.get_day_id('2099-01-01')
 
 # Save actual prices for each ticker
-print("Saving actual prices for each ticker...", end=' ')
+print("Saving actual prices for each ticker...")
 models = []
 tickers = db.get_tickers()
 today = db.today_id()
 for ticker in tickers:
+    # TODO make sure models are loaded correctly
     model = Model(ticker, MODELS_PATH, IMG_PATH)
     models.append(model)
     model.save_actual_price(today)
@@ -35,9 +36,11 @@ db.double_check_actual_prices()
 
 # Train models
 for model in models:
-    print(f"Updating model for {ticker}...")
+    print(f"Updater: Updating model for {ticker}...")
     model.train(50, 0.0002)
+
     print(f"Model for {ticker} updated.\n\n")
     # TODO update daily_accuracy table here
+    # TODO make sure models are saved correctly
 
 print("Update complete!")

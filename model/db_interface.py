@@ -295,6 +295,22 @@ class DBInterface:
             raise ValueError("Day ID not found in the database.")
     #--------------------------------#
 
+    #--- Function: Get all days in the database ---#
+    def all_days(self):
+        """Get the total number of days in the database."""
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT date FROM day')
+        row = cursor.fetchall()
+        conn.close()
+        if row:
+            row = [r[0] for r in row]  # Extract the date strings from the tuples
+            return row
+        else:
+            raise ValueError("No days found in the database.")
+    #----------------------------------------------#
+
+
     #--- Function: Add all missing dates to the database ---#
     def _populate_dates(self):
         """Populate the database with all dates since the last recorded date."""
