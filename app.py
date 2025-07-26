@@ -39,6 +39,7 @@ def predict():
 
     ticker = data['stock_symbol']
     print(f"\nPredict button clicked for ticker: {ticker}")
+    print(f"Models currently loaded: {list(models.keys())}")
 
     try:
         model = models.get(ticker)
@@ -66,7 +67,15 @@ def predict():
         elif status == 'in_progress':
             print('Model is currently being updated')
             # If the model is in progress, we return the last recommendation
-            recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
+            if model.recommendation is None:
+                recommendation = 'The AI is currently being trained on this ticker.<br>Please try again later.'
+                response = jsonify({
+                    'result': recommendation,
+                })
+                response.headers['Cache-Control'] = 'no-store'
+                return response
+            else:
+                recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
         
         elif status == 'pending':
             print('Model has been updated, refreshing now...'),

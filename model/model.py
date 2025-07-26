@@ -94,9 +94,8 @@ class Model:
         plt.legend()
         
         # Save image
-        # TODO remove, shouldn't be needed
         if not os.path.exists(os.path.dirname(self.img1_path)):
-            print("Directory doesn't exist??!")
+            print("Directory doesn't exist!")
             raise FileNotFoundError(f"Directory for {self.img1_path} does not exist.")
         plt.savefig(self.img1_path)
         plt.close()

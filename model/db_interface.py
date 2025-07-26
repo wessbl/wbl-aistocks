@@ -33,11 +33,6 @@ class DBInterface:
         path = self.get_lstm_path(ticker)
         model._model.save(path)
 
-        # Get text version of last_update
-        last_update_txt = None
-        if last_update is not None:
-            last_update_txt = last_update.strftime("%Y-%m-%d")
-
         # Database connection
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -56,7 +51,7 @@ class DBInterface:
         cursor.execute('''
             INSERT OR REPLACE INTO model (ticker, result, last_update, status)
             VALUES (?, ?, ?, ?)''',
-            (ticker, result, last_update_txt, status))
+            (ticker, result, last_update, status))
         conn.commit()
         conn.close()
     #------------------------------#

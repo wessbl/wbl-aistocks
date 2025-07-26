@@ -23,23 +23,15 @@ class YFInterface:
 
         # Check if yfinance has a close date for today
         df = yf.download("AAPL", period="1d", interval="1d", progress=False, auto_adjust=True)
-        if df.empty:
-            print("Market has not closed yet today.")                #TODO need to return results
-        else:
-            print("Market is closed — today's data is available.") #TODO need to return results
+
+        # TODO test to make sure it returns the yesterday's date if the market is closed today
+
+        return df.index[-1].strftime('%Y-%m-%d')
     #------------------------------------------------------#
 
     #--- Function: Get the latest close prices for a ticker ---#
     def get_close_prices(ticker, start_date, end_date=None):
-        """"""
-        # TODO remove after testing
-        # # Get all data from start through last close (yf excludes end date)
-        # today = pd.Timestamp.now().date()
-        # if today >= self.last_close():
-        #     df = yf.download(self.ticker, interval="1d", start=self._start_date)
-        # else: 
-        #     df = yf.download(self.ticker, start=self._start_date, end=today)
-
+        """ Get the latest close prices for a ticker from yfinance."""
         df = None
         if end_date is None:
             df = yf.download(ticker, interval="1d", start=start_date, progress=False, auto_adjust=True)

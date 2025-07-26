@@ -33,7 +33,7 @@ def update_fs():
 
         # Scrub the database (optional)
         if SCRUB_DB:  # Set to True if needed
-            print("\nBONUS: Scrubbing the database...", end=' ')
+            print("\tBONUS: Scrubbing the database...", end=' ')
             cursor.execute("DROP TABLE IF EXISTS model;")
             cursor.execute("DROP TABLE IF EXISTS prediction;")
             cursor.execute("DROP TABLE IF EXISTS daily_accuracy;")

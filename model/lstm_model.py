@@ -3,7 +3,7 @@ from model.yf_interface import YFInterface as yfi
 import logging
 import os
 logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'    # Suppresses INFO and WARNING messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    # Suppresses INFO and WARNING messages
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'   # Turn off oneDNN custom operations
 # import tensorflow as tf
 from keras.models import Sequential
@@ -18,7 +18,7 @@ class LSTMModel:
     _update_epoch = 1           # how many epochs for an update
     _prediction_len = 5         # how many days to predict
     _start_date = '2015-01-01'
-    last_update = None
+    last_update = None      # Last update as a date 'YYYY-MM-DD'
     _model = None
     orig_data = None
     _scaled_data = None
@@ -41,19 +41,9 @@ class LSTMModel:
             # Get data & train brand-new model
             self.ticker = ticker
             self.status = 'new'
-            # self.preprocess(self._start_date)  #TODO remove after testing
+            self.last_update = '2025-01-01'
             self._model = self._create_model(model)
     #------------------------------#
-
-    # TODO remove after testing
-    #--- Function: Create the dataset for LSTM ---#
-    # def create_dataset(self, data):
-    #     X, y = [], []
-    #     for i in range(len(data) - self.time_step - 1):
-    #         X.append(data[i:(i + self.time_step), 0])
-    #         y.append(data[i + self.time_step, 0])
-    #     return np.array(X), np.array(y)
-    #---------------------------------------------#
 
     #--- Function: Preprocess the latest data ---#
     def preprocess(self, end_date=None):
@@ -91,10 +81,6 @@ class LSTMModel:
             model.add(Dense(1))
             model.compile(optimizer='adam', loss='mean_squared_error')
 
-        # TODO remove after testing
-        # Train model
-        # model.fit(self.X, self.y, epochs=self._epochs, batch_size=64)
-        # self.last_update = yfi.last_close()
         return model
     #-----------------------------------------------#
 
@@ -137,7 +123,15 @@ class LSTMModel:
     #--- Function: Check if the model needs to be updated ---#
     def needs_update(self):
         # If the model is None, it needs to be updated
-        if self._model is None or self.last_update is None or self.last_update.date() < yfi.last_close():
+        if self._model is None or self.last_update is None or self.last_update < yfi.last_close():
+            # TODO probably not needed
+            # print(f"Needs Update: ", end='')
+            # if self._model is None:
+            #     print("Model is None.")
+            # elif self.last_update is None:
+            #     print("Last update is None.")   #TODO make sure last_update is being set!
+            # else:
+            #     print(f"Last update {self.last_update} is before {yfi.last_close()}.")
             return True
 
         # Otherwise, no update needed
@@ -172,7 +166,6 @@ class LSTMModel:
                         print('MSE value ' + str(round(mse_value, 5)) + ' is inadequate but epochs maxed out.')
                 else:
                     print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
-
         self.last_update = yfi.last_close()
     #-------------------------------------------------------------#
 
