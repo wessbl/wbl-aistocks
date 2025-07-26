@@ -15,17 +15,29 @@ IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
 print("*** Beginning Scheduled Update ***")
 db = DBInterface(MODELS_PATH)
+
+# Update days by requesting future date
+db.get_day_id('2099-01-01')
+
+# Save actual prices for each ticker
+print("Saving actual prices for each ticker...", end=' ')
+models = []
 tickers = db.get_tickers()
-
-# Prepare the day
-db.get_day_id('2099-01-01')  # This will ensure the day table is up to date
-
-# TODO Save the closing price
-
+today = db.today_id()
 for ticker in tickers:
-    print(f"Updating model for {ticker}...")
     model = Model(ticker, MODELS_PATH, IMG_PATH)
-    model.train(10, 0.0002)
-    print(f"Model for {ticker} updated.\n\n")
+    models.append(model)
+    model.save_actual_price(today)
+print("done.")
 
-print("All models updated.")
+# Make sure all actual prices are saved
+db.double_check_actual_prices()
+
+# Train models
+for model in models:
+    print(f"Updating model for {ticker}...")
+    model.train(50, 0.0002)
+    print(f"Model for {ticker} updated.\n\n")
+    # TODO update daily_accuracy table here
+
+print("Update complete!")

@@ -48,6 +48,11 @@ class Model:
             self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
     #-------------------------------#
+
+    #--- Function: Prepare for new day ---#
+    def save_actual_price(self, today):
+        self._db.save_actual_price(self.ticker, today)
+    #-------------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self):
@@ -67,8 +72,8 @@ class Model:
         if today == -1:
             print("Error: Could not get today's day ID from the database.")
             return
-        for i in range(len(prediction)):
-            self._db.save_prediction(self.ticker, today, today+i, prediction[i], buy)
+        for i in range(1, len(prediction)): # Skip the first prediction (current price)
+            self._db.save_prediction(self.ticker, today, today+i, float(prediction[i]), bool(buy))
         
         # Save buy/sell recommendation to the database
         # TODO save 'buy' variable
@@ -120,7 +125,7 @@ class Model:
     #-----------------------------------------------#
 
     #--- Function: Train model further ---#
-    def train(self, epochs, threshold=0):
+    def train(self, epochs=5, threshold=0):
         # Check if the model needs to be updated
         if not self._lstm.needs_update():
             print(f"Model for {self.ticker} is up-to-date, no training needed.")

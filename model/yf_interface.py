@@ -43,3 +43,16 @@ class YFInterface:
         data = df['Close'].values
         return data
     #------------------------------------------------------#
+
+    #--- Function: Get the latest close prices for a ticker ---#
+    def get_price(ticker, start_date):
+        """ Get the latest close prices for a ticker from yfinance."""
+        df = yf.download(ticker, period="1d", start=start_date, progress=False, auto_adjust=True)
+        if (len(df) == 0): raise ValueError("Cannot download from yfinance")
+
+        # Create global orig_data, scaler, scaled_data, X, y
+        price = df['Close'].values
+        if len(price) > 1:
+            raise ValueError("Multiple prices returned, expected only one.")
+        return price
+    #------------------------------------------------------#

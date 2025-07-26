@@ -9,7 +9,7 @@ new_db = os.path.join(SAVE_PATH, 'futurestock.db')
 db = db(SAVE_PATH)
 
 # If you would like to scrub the database, set this to True
-SCRUB_DB = False
+SCRUB_DB = True
 
 # Update to 0.7 - db_overhaul
 def update_fs():
@@ -119,8 +119,7 @@ def update_fs():
             day INTEGER NOT NULL,
             mape REAL,
             buy_accuracy REAL,
-            simulated_profit REAL,
-            UNIQUE(ticker, day)
+            simulated_profit REAL
         )
         ''')
         conn.commit()

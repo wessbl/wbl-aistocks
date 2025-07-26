@@ -168,15 +168,44 @@ class DBInterface:
     #---------------------------------------#
 
     #--- Function: Update the Actual Price ---#
-    def update_actual_price(self, ticker, for_day, actual_price):
+    def save_actual_price(self, ticker, for_day):
+        """Update the actual price in prediction table for a given ticker and day."""
+        # Convert the day to string format
+        for_day = self.get_day_string(for_day)
+
+        # Get the price
+        price = yfi.get_price(ticker, for_day)
+        if price is None:
+            raise ValueError(f"Could not retrieve price for {ticker} on {for_day}.")
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE prediction
             SET actual_price = ?
             WHERE ticker = ? AND for_day = ?''',
-            (actual_price, ticker, for_day))
+            (price, ticker, for_day))
         conn.commit()
+        conn.close()
+    #---------------------------------------#
+
+    #--- Function: Double-check actual prices ---#
+    def double_check_actual_prices(self):
+        """Double-check that all actual prices are saved in the database."""
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT ticker, for_day FROM prediction
+            WHERE actual_price IS NULL''')
+        rows = cursor.fetchall()
+        
+        for ticker, for_day in rows:
+            try:
+                print(f"WARNING: Actual price for {ticker} on {for_day} is missing. Attempting to save...", end=' ')
+                self.save_actual_price(ticker, for_day)
+                print("Successfully saved!")
+            except ValueError as e:
+                print(f"Error saving actual price for {ticker} on {for_day}: {e}")
+        
         conn.close()
     #---------------------------------------#
 
@@ -290,4 +319,14 @@ class DBInterface:
         cursor.executescript(instructions)
         conn.commit()
         conn.close()
+    #-------------------------------------#
+
+    #--- Function: Perform Some Query ---#
+    def run_query(self, instructions):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute(instructions)
+        result = cursor.fetchall()
+        conn.close()
+        return result
     #-------------------------------------#
