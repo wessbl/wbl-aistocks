@@ -11,7 +11,7 @@ BASE_DIR = os.path.normpath(os.path.join(BASE_DIR, '..'))
 MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models')
 IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
-#TODO double-check that the updater class is running on-time
+#TODO the updater class is not running on time, check logs
 
 print("*** Beginning Scheduled Update ***")
 db = DBInterface(MODELS_PATH)
@@ -25,7 +25,6 @@ models = []
 tickers = db.get_tickers()
 today = db.today_id()
 for ticker in tickers:
-    # TODO make sure models are loaded correctly
     model = Model(ticker, MODELS_PATH, IMG_PATH)
     models.append(model)
     model.save_actual_price(today)
