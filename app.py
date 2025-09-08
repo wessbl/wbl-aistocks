@@ -1,18 +1,18 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from model.model import Model
+from model.db_interface import DBInterface
 import os
 import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models')
+# MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models') #TODO remove after testing
 IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
 # Keep some logs B)
 import logging
 logging.basicConfig(filename='flask.log', level=logging.DEBUG)
 
-# Dictionary of models ticker : Model
-models = {}
+# List of tickers
+tickers = {}
 
 app = Flask(__name__)
 
@@ -39,22 +39,22 @@ def predict():
 
     ticker = data['stock_symbol']
     print(f"\nPredict button clicked for ticker: {ticker}")
-    print(f"Models currently loaded: {list(models.keys())}")
 
     try:
-        model = models.get(ticker)
-        if model is None:
-            models[ticker] = Model(ticker, MODELS_PATH, IMG_PATH) # TODO create a shallow copy that doesn't read/write to keras file
-            model = models[ticker]
-        
+        # Load the ticker information from the database
+        dbi = DBInterface(os.path.join(BASE_DIR, 'static', 'models'))
+        if ticker not in dbi.get_tickers():
+            # TODO handle new ticker when front-end is ready
+            return jsonify({'error': f'Ticker {ticker} not found in database. Please add it first.'}), 400
+        model, recommendation, last_update, status = dbi.load_model(ticker)
+        print(f"Loaded data for {ticker}: status={status}, last_update={last_update}")
+
         # Possible states are new, in_progress, pending, completed
         #   |   STATUS      |     FRONT END     |     BACK END      |
         #   | new           |   No Image Lookup |  Nothing          |
         #   | in_progress   |   Not affected    |  Updating         |
         #   | pending       |   Needs refresh   |  Update finished  |
         #   | completed     |   Refreshed       |  Update finished  |
-        status = model.get_status() # Checks DB
-        recommendation = model.recommendation
 
         if status == 'new':
             recommendation = 'The AI will be trained on this ticker during the next update<br>(within 24 hours).'
@@ -77,14 +77,11 @@ def predict():
             else:
                 recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
         
+        # TODO pending status is vestigial but may come in handy for debugging
         elif status == 'pending':
-            print('Model has been updated, refreshing now...'),
-            models.pop(ticker)
-            models[ticker] = Model(ticker, MODELS_PATH, IMG_PATH)
-            model = models[ticker]
-            model.update_completed()
-            recommendation = model.recommendation
-            print('...done. Status set to ', model.get_status())
+            print('Model has been updated...', end=' ')
+            dbi.set_status(ticker, 'completed')
+            print('status set to completed.')
 
         elif status == 'completed':
             print('Model is up-to-date.')
@@ -107,31 +104,30 @@ def predict():
         return response
     
     except ConnectionError as e:
-        model = None
         return jsonify({'result': 'Connection error occurred, likely issue with yfinance.'})
     except Exception as e:
-        model = None
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
 
-@app.route('/add_ticker', methods=['POST'])
-def add_ticker():
-    stock_symbol = request.form.get('requested_stock_symbol', '').strip().upper()
-    if not stock_symbol:
-        return jsonify({'error': 'No stock symbol provided'}), 400
+# TODO front end not set up for this yet but the method may be useful
+# @app.route('/add_ticker', methods=['POST'])
+# def add_ticker():
+#     stock_symbol = request.form.get('requested_stock_symbol', '').strip().upper()
+#     if not stock_symbol:
+#         return jsonify({'error': 'No stock symbol provided'}), 400
 
-    print(f"Adding ticker: {stock_symbol}")
-    try:
-        # Check if the model already exists
-        if stock_symbol in models:
-            return jsonify({'message': f'Model for {stock_symbol} already exists.'}), 200
+#     print(f"Adding ticker: {stock_symbol}")
+#     try:
+#         # Check if the model already exists
+#         if stock_symbol in models:
+#             return jsonify({'message': f'Model for {stock_symbol} already exists.'}), 200
         
-        # Create a new model and add it to the models dictionary
-        models[stock_symbol] = Model(stock_symbol, MODELS_PATH, IMG_PATH)
-        return jsonify({'message': f'Model for {stock_symbol} added successfully.'}), 200
+#         # Create a new model and add it to the models dictionary
+#         models[stock_symbol] = Model(stock_symbol, MODELS_PATH, IMG_PATH)
+#         return jsonify({'message': f'Model for {stock_symbol} added successfully.'}), 200
     
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
     
 
 
@@ -155,17 +151,12 @@ if __name__ == '__main__':
         if not result:
             print("Update failed, exiting app.")
             exit(1)
-        else:
+
+        # TODO: Uncomment this block to run the updater immediately
+        # else:
             # print("app.py: Adding models and running model updater...")
-            # Make sure models are added
-            models['AAPL'] = Model('AAPL', MODELS_PATH, IMG_PATH)
-            models['GOOGL'] = Model('GOOGL', MODELS_PATH, IMG_PATH)
-            models['META'] = Model('META', MODELS_PATH, IMG_PATH)
-            models['AMZN'] = Model('AMZN', MODELS_PATH, IMG_PATH)
-            models['NFLX'] = Model('NFLX', MODELS_PATH, IMG_PATH)
-            # TODO: Uncomment the next line to run the updater immediately
             # import model.updater # This will run the updater.py script
             # print("app.py: Update completed successfully.")
     
-    app.run(debug=False)
+    app.run(debug=True) # TODO set to False for production
 #---------------------#

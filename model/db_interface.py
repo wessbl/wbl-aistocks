@@ -36,6 +36,9 @@ class DBInterface:
         # Database connection
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
+
+        # TODO results probably only belong in the prediction table
+        # Create the model table if it doesn't exist
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS model (
             model_id INTEGER PRIMARY KEY AUTOINCREMENT,

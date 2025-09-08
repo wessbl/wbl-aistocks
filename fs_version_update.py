@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from model.db_interface import DBInterface as db
+from model.model import Model
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(BASE_DIR, 'static', 'models')
@@ -123,6 +124,24 @@ def update_fs():
         )
         ''')
         conn.commit()
+        print("done.")
+
+        # Step 9: Add the models if they don't exist
+        print("\t9. Adding default models if they don't exist...", end=' ')
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models')
+        IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
+        models = {}
+        if 'AAPL' not in models:
+            models['AAPL'] = Model('AAPL', MODELS_PATH, IMG_PATH)
+        if 'GOOGL' not in models:
+            models['GOOGL'] = Model('GOOGL', MODELS_PATH, IMG_PATH)
+        if 'META' not in models:
+            models['META'] = Model('META', MODELS_PATH, IMG_PATH)
+        if 'AMZN' not in models:
+            models['AMZN'] = Model('AMZN', MODELS_PATH, IMG_PATH)
+        if 'NFLX' not in models:
+            models['NFLX'] = Model('NFLX', MODELS_PATH, IMG_PATH)
         print("done.")
 
         # Close the connection

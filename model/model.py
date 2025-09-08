@@ -40,8 +40,8 @@ class Model:
             # else: 
             self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
 
+        # If the model doesn't exist, create a new one
         except Exception as e:
-            # If the model doesn't exist, create a new one
             print(f"Error loading model for {ticker}: {e}")
             print(f"Could not find {ticker} in database. Creating new model...", end=' ')
             self._lstm = LSTMModel(ticker)
@@ -59,13 +59,14 @@ class Model:
         # Make prediction (data) & recommendation (text)
         print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
+        # TODO probably most of this is no longer needed
         percent = self._lstm.percentage_change(prediction)
         buy = percent > 0
         percent = str(f"{percent:.2f}")
         if buy:
-            self.recommendation = "<b>Buy</b><br>AIStockHelper says this stock will change by " + percent + "%."
+            self.recommendation = "<b>Buy</b><br>FutureStock AI says this stock will change by " + percent + "%."
         else:
-            self.recommendation = "<b>Sell</b><br>AIStockHelper says this stock will change by " + percent + "%."
+            self.recommendation = "<b>Sell</b><br>FutureStock AI says this stock will change by " + percent + "%."
 
         # Save the prediction to the database
         today = self._db.today_id()
@@ -149,11 +150,6 @@ class Model:
             self.generate_output()
         self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation, 'pending')
         self._status = 'pending'
-    #----------------------------------------------#
-
-    #--- Function: Change status to completed ---#
-    def update_completed(self):
-        self._set_status(3)
     #----------------------------------------------#
 
     #--- Function: Change status ---#
