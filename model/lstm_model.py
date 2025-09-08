@@ -17,7 +17,7 @@ class LSTMModel:
     _epochs = 50                # 10   | 50  | 100
     _update_epoch = 1           # how many epochs for an update
     _prediction_len = 5         # how many days to predict
-    _start_date = '2015-01-01'
+    _start_date = '2017-01-01'  # Initial training start date
     last_update = None      # Last update as a date 'YYYY-MM-DD'
     _model = None
     orig_data = None
@@ -41,7 +41,7 @@ class LSTMModel:
             # Get data & train brand-new model
             self.ticker = ticker
             self.status = 'new'
-            self.last_update = '2025-01-01'
+            self.last_update = '2025-09-01'
             self._model = self._create_model(model)
     #------------------------------#
 

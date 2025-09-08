@@ -1,58 +1,88 @@
 import yfinance as yf
+import pandas as pd
 
 class YFInterface:
+    # Create a global dictionary to store prices
+    _prices = {}
+
+    #--- Constructor ---#
+    def __init__(self, tickers, start_date, end_date=None):
+        """
+        Download and cache price data for all tickers between start_date and end_date.
+        """
+        if not tickers:
+            raise ValueError("No tickers found in the database.")
+
+        params = {
+            "tickers": tickers,
+            "start": start_date,
+            "interval": "1d",
+            "progress": False,
+            "group_by": "ticker",
+            "auto_adjust": True
+        }
+
+        if end_date is not None:
+            params["end"] = end_date
+
+        df = yf.download(**params)
+
+
+        if isinstance(df.columns, pd.MultiIndex):
+            for ticker in tickers:
+                self._prices[ticker] = df.xs(ticker, axis=1, level=1)
+        else:
+            self._prices[tickers[0]] = df  # only one ticker
+
+    
     #--- Function: Get all dates since a given date ---#
-    def get_all_dates(since_date="2025-01-01"):
+    def get_all_dates(self, since_date="2025-09-01"):
         """
         Get all dates since a given date.
         :param since_date: The date to start from in 'YYYY-MM-DD' format.
         :return: A list of dates as strings in 'YYYY-MM-DD' format.
         """
-        # Download data from yfinance
-        data = yf.download("AAPL", period="1d", start=since_date, progress=False, auto_adjust=True)
-        
-        # Extract dates and convert to string format
-        dates = data.index.strftime('%Y-%m-%d').tolist()
-        
+        any_df = next(iter(self._prices.values()))
+        data = any_df.index
+        # Find index of since_date
+        since_index = data.get_loc(since_date, method='pad')
+        # Get all dates from since_date to the end of the index
+        data = data[since_index:]
+        dates = data.strftime('%Y-%m-%d').tolist()
         return dates
     #---------------------------------------------------#
 
     #--- Function: Check if the market is closed today ---#
-    def last_close():
+    def last_close(self):
         """ Check if the market is closed today by checking if yfinance has a close date for today."""
-
-        # Check if yfinance has a close date for today
-        df = yf.download("AAPL", period="1d", interval="1d", progress=False, auto_adjust=True)
-
-        # TODO test to make sure it returns the yesterday's date if the market is closed today
-
-        return df.index[-1].strftime('%Y-%m-%d')
+        any_df = next(iter(self._prices.values()))
+        data = any_df.index[-1]  # Get the last date in the index
+        date = date.strftime('%Y-%m-%d')
+        return date
     #------------------------------------------------------#
 
     #--- Function: Get the latest close prices for a ticker ---#
-    def get_close_prices(ticker, start_date, end_date=None):
+    def get_close_prices(self, ticker, start_date, end_date=None):
         """ Get the latest close prices for a ticker from yfinance."""
-        df = None
-        if end_date is None:
-            df = yf.download(ticker, interval="1d", start=start_date, progress=False, auto_adjust=True)
-        else:
-            df = yf.download(ticker, interval="1d", start=start_date, end=end_date, progress=False, auto_adjust=True)
-        if (len(df) == 0): raise ValueError("Cannot download from yfinance")
-
-        # Create global orig_data, scaler, scaled_data, X, y
-        data = df['Close'].values
-        return data
+        if ticker not in self._prices:
+            raise ValueError(f"Ticker {ticker} not found in the cached prices.")
+        df = self._prices[ticker]
+        df = df.loc[start_date:end_date] if end_date else df.loc[start_date:]
+        return df['Close'].values
     #------------------------------------------------------#
 
     #--- Function: Get the latest close prices for a ticker ---#
-    def get_price(ticker, start_date):
-        """ Get the latest close prices for a ticker from yfinance."""
-        df = yf.download(ticker, period="1d", start=start_date, progress=False, auto_adjust=True)
-        if (len(df) == 0): raise ValueError("Cannot download from yfinance")
-
-        # Create global orig_data, scaler, scaled_data, X, y
-        price = df['Close'].values
-        if len(price) > 1:
-            raise ValueError("Multiple prices returned, expected only one.")
+    def get_price(self, ticker, start_date):
+        """Return the closing price for the given date."""
+        if ticker not in self._prices:
+            raise ValueError(f"Ticker {ticker} not found in the cached prices.")
+        
+        df = self._prices[ticker]
+        # Get index of start_date
+        start_index = df.index.get_loc(start_date, method='pad')
+        row = df.loc[start_index]
+        price = row['Close']
         return price
     #------------------------------------------------------#
+
+    # TODO add function to check ticker validity when front-end is ready

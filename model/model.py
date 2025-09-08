@@ -51,6 +51,11 @@ class Model:
 
     #--- Function: Prepare for new day ---#
     def save_actual_price(self, today):
+        # Get the price
+        price = yfi.get_price(self.ticker, today)
+        if price is None:
+            raise ValueError(f"Could not retrieve price for {self.ticker} on {today}.")
+
         self._db.save_actual_price(self.ticker, today)
     #-------------------------------------#
     
@@ -124,11 +129,10 @@ class Model:
 
     #--- Function: Train model further ---#
     def train(self, epochs=5, threshold=0):
-        # TODO get all the data from yf and take it one day at a time
-        print(f"Model status: {self._lstm.status}") # TODO remove debug print
-        # if status is 'new', train the model up to 2025-01-01 then have it predict every day after
+        # if status is 'new', train the model up to 2025-09-01 then have it predict every day after
         if self._lstm.status == 'new':
             days = self._db.all_days()
+            
             self._lstm.train(50, days[0], mse_threshold=threshold)
             for day in days[1:]:
                 print(f"Training model for {self.ticker} on {day}...") # TODO remove debug print

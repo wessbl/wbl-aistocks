@@ -1,6 +1,5 @@
 import sqlite3
 import os
-from model.yf_interface import YFInterface as yfi
 from keras.models import load_model
 
 class DBInterface:
@@ -50,11 +49,18 @@ class DBInterface:
             )
         ''')
 
-        # Store the model in the database
         cursor.execute('''
-            INSERT OR REPLACE INTO model (ticker, result, last_update, status)
-            VALUES (?, ?, ?, ?)''',
-            (ticker, result, last_update, status))
+            UPDATE model
+            SET result=?, last_update=?, status=?
+            WHERE ticker=?
+        ''', (result, last_update, status, ticker))
+
+        if cursor.rowcount == 0:  # no row updated, so insert new one
+            # Store the model in the database
+            cursor.execute('''
+                INSERT OR REPLACE INTO model (ticker, result, last_update, status)
+                VALUES (?, ?, ?, ?)''',
+                (ticker, result, last_update, status))
         conn.commit()
         conn.close()
     #------------------------------#
@@ -171,15 +177,11 @@ class DBInterface:
     #---------------------------------------#
 
     #--- Function: Update the Actual Price ---#
-    def save_actual_price(self, ticker, for_day):
+    def save_actual_price(self, ticker, for_day, price):
         """Update the actual price in prediction table for a given ticker and day."""
         # Convert the day to string format
         for_day = self.get_day_string(for_day)
 
-        # Get the price
-        price = yfi.get_price(ticker, for_day)
-        if price is None:
-            raise ValueError(f"Could not retrieve price for {ticker} on {for_day}.")
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -315,20 +317,19 @@ class DBInterface:
 
 
     #--- Function: Add all missing dates to the database ---#
-    def _populate_dates(self):
+    def _populate_dates(self, dates):
         """Populate the database with all dates since the last recorded date."""
         # Get the last day recorded in the database
         today = self.today_id()
         date_list = []
+        # If today wasn't found, get all dates since 2025-09-01
         if today == -1:
-            date_list = yfi.get_all_dates()
+            # Add all dates
+            for date in dates:
+                self._save_day(date)
         else:
             today = self.get_day_string(today)
             date_list = yfi.get_all_dates(since_date=today)
-        
-        # Add all dates
-        for date in date_list:
-            self._save_day(date)
     #-----------------------------------------------#
 
     #--- Function: Perform Some Update ---#

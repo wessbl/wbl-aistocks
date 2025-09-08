@@ -31,14 +31,14 @@ for ticker in tickers:
 print("done.")
 
 # Make sure all actual prices are saved
-db.double_check_actual_prices()
+# db.double_check_actual_prices()
 
 # Train models
 for model in models:
-    print(f"Updater: Updating model for {ticker}...")
-    model.train(50, 0.0002)
+    print(f"Updater: Updating model for {model.ticker}...")
+    model.train(50, 0.01) # TODO set threshold to 0.0002
 
-    print(f"Model for {ticker} updated.\n\n")
+    print(f"Model for {model.ticker} updated.\n\n")
     # TODO update daily_accuracy table here
     # TODO make sure models are saved correctly
 

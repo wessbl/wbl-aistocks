@@ -4,7 +4,6 @@ import os
 import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models') #TODO remove after testing
 IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
 # Keep some logs B)
