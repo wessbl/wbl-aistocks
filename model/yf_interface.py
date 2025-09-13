@@ -26,11 +26,10 @@ class YFInterface:
             params["end"] = end_date
 
         df = yf.download(**params)
-
-
         if isinstance(df.columns, pd.MultiIndex):
             for ticker in tickers:
-                self._prices[ticker] = df.xs(ticker, axis=1, level=1)
+                self._prices[ticker] = df.xs(ticker, axis=1, level=0)
+                # print(self._prices[ticker].head()) #TODO remove debug print
         else:
             self._prices[tickers[0]] = df  # only one ticker
 
@@ -44,10 +43,27 @@ class YFInterface:
         """
         any_df = next(iter(self._prices.values()))
         data = any_df.index
-        # Find index of since_date
-        since_index = data.get_loc(since_date, method='pad')
+
+        # Convert since_date to a pandas Timestamp
+        since_timestamp = pd.Timestamp(since_date)
+
+        # Get index location
+        index = data.get_indexer([since_timestamp], method='pad')[0]
+
+        # Deal with dates that aren't in the program by trying to find up to 10 days after it
+        if index == -1:
+            counter = 0
+            while index == -1:
+                since_timestamp += pd.Timedelta(days=1)
+                index = data.get_indexer([since_timestamp], method='pad')[0]
+                # print("Trying "+ str(since_timestamp.date()))
+                counter += 1
+                if counter == 10:
+                    raise ValueError(f"No index found on {since_date} or 10 days after.")
+            
+
         # Get all dates from since_date to the end of the index
-        data = data[since_index:]
+        data = data[index:]
         dates = data.strftime('%Y-%m-%d').tolist()
         return dates
     #---------------------------------------------------#

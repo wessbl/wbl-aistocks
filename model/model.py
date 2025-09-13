@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from model.lstm_model import LSTMModel
 from model.db_interface import DBInterface
+from model.yf_interface import YFInterface
 
 # A wrapper class for LSTMModels that generates images
 class Model:
@@ -16,19 +17,19 @@ class Model:
     _prediction = None
     _mirror = None
     _db = None
+    _yf = None
 
     # Paths
     img1_path = None
     img2_path = None
-    _lstm_path = None
     
     #--- Constructor ---#
-    def __init__(self, ticker, MODELS_PATH, IMG_PATH):
+    def __init__(self, ticker, db, yf, IMG_PATH):
         self.ticker = ticker
-        self._db = DBInterface(MODELS_PATH)
+        self._db = db
+        self._yf = yf
 
         # Create paths
-        self._lstm_path = os.path.join(MODELS_PATH, ticker, '.keras')
         self.img1_path = os.path.join(IMG_PATH, (ticker + 'pred.png'))
         self.img2_path = os.path.join(IMG_PATH, (ticker + 'mirr.png'))
 
@@ -38,25 +39,25 @@ class Model:
             # if self._status == 'new':
             #     self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
             # else: 
-            self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
+            self._lstm = LSTMModel(ticker, keras_model, last_update, self._status, self._yf)
 
         # If the model doesn't exist, create a new one
         except Exception as e:
             print(f"Error loading model for {ticker}: {e}")
             print(f"Could not find {ticker} in database. Creating new model...", end=' ')
-            self._lstm = LSTMModel(ticker)
+            self._lstm = LSTMModel(ticker, yf=self._yf)
             self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
     #-------------------------------#
 
     #--- Function: Prepare for new day ---#
-    def save_actual_price(self, today):
+    def save_actual_price(self, for_day, price):
         # Get the price
-        price = yfi.get_price(self.ticker, today)
+        price = self._yf.get_price(self.ticker, for_day)
         if price is None:
-            raise ValueError(f"Could not retrieve price for {self.ticker} on {today}.")
+            raise ValueError(f"Could not retrieve price for {self.ticker} on {for_day}.")
 
-        self._db.save_actual_price(self.ticker, today)
+        self._db.save_actual_price(self.ticker, for_day, price)
     #-------------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
@@ -132,12 +133,12 @@ class Model:
         # if status is 'new', train the model up to 2025-09-01 then have it predict every day after
         if self._lstm.status == 'new':
             days = self._db.all_days()
-            
             self._lstm.train(50, days[0], mse_threshold=threshold)
             for day in days[1:]:
-                print(f"Training model for {self.ticker} on {day}...") # TODO remove debug print
+                print(f"Training model for {self.ticker} on {day}...")
                 self._lstm.train(1, day)
                 self.generate_output()
+                self._db.save_actual_price(self.ticker, day, self._yf.get_price(self.ticker, day))
                 # TODO 0.8 - Calculate accuracy here
             
         else:

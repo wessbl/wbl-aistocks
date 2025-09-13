@@ -1,13 +1,13 @@
 import os
 import sqlite3
-from model.db_interface import DBInterface as db
+from model.db_interface import DBInterface
+from model.yf_interface import YFInterface
 from model.model import Model
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(BASE_DIR, 'static', 'models')
 old_db = os.path.join(SAVE_PATH, 'models.db')
 new_db = os.path.join(SAVE_PATH, 'futurestock.db')
-db = db(SAVE_PATH)
 
 # If you would like to scrub the database, set this to True
 SCRUB_DB = True # TODO set to true for release
@@ -18,6 +18,13 @@ def update_fs():
 
     # Surround with try-except to handle potential errors
     try:
+        # Prep: Initialize YFI and DBI
+        print("\tPrepping YF and DB interfaces...", end=' ')
+        yf = YFInterface(['AAPL'], '2025-09-01')
+        dates = yf.get_all_dates()
+        db = DBInterface(SAVE_PATH, dates)
+        print("done.")
+
         # Step 1: Rename DB file
         print("\t1. Renaming models.db to futurestock.db...", end=' ')
         try:
@@ -88,7 +95,7 @@ def update_fs():
 
         # Step 6 Create Day table
         print("\t6. Creating Day table if it doesn't exist...", end=' ')
-        result = db.get_day_id('2025-07-24')
+        result = db.get_day_id('2099-01-01')
         if result != -1:
             print("Day table is up to date!")
         else: 
@@ -129,19 +136,18 @@ def update_fs():
         # Step 9: Add the models if they don't exist
         print("\t9. Adding default models if they don't exist...", end=' ')
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models')
         IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
         models = {}
         if 'AAPL' not in models:
-            models['AAPL'] = Model('AAPL', MODELS_PATH, IMG_PATH)
+            models['AAPL'] = Model('AAPL', db, yf, IMG_PATH)
         if 'GOOGL' not in models:
-            models['GOOGL'] = Model('GOOGL', MODELS_PATH, IMG_PATH)
+            models['GOOGL'] = Model('GOOGL', db, yf, IMG_PATH)
         if 'META' not in models:
-            models['META'] = Model('META', MODELS_PATH, IMG_PATH)
+            models['META'] = Model('META', db, yf, IMG_PATH)
         if 'AMZN' not in models:
-            models['AMZN'] = Model('AMZN', MODELS_PATH, IMG_PATH)
+            models['AMZN'] = Model('AMZN', db, yf, IMG_PATH)
         if 'NFLX' not in models:
-            models['NFLX'] = Model('NFLX', MODELS_PATH, IMG_PATH)
+            models['NFLX'] = Model('NFLX', db, yf, IMG_PATH)
         print("done.")
 
         # Close the connection

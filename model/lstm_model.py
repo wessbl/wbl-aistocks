@@ -1,5 +1,5 @@
 import numpy as np
-from model.yf_interface import YFInterface as yfi
+from model.yf_interface import YFInterface
 import logging
 import os
 logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
@@ -24,12 +24,13 @@ class LSTMModel:
     _scaled_data = None
     prediction = None
     recommendation = None
+    _yf = None
 
     X = np.array([])
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, ticker, model=None, last_update=None, status=None):
+    def __init__(self, ticker, model=None, last_update=None, status=None, yf=None):
         # Check for valid model
         if model is not None:
             self.ticker = ticker
@@ -43,6 +44,7 @@ class LSTMModel:
             self.status = 'new'
             self.last_update = '2025-09-01'
             self._model = self._create_model(model)
+        self._yf = yf
     #------------------------------#
 
     #--- Function: Preprocess the latest data ---#
@@ -51,9 +53,9 @@ class LSTMModel:
         orig_data = None
         # If no end date is provided, use the last close date
         if end_date is None:
-            orig_data = yfi.get_close_prices(self.ticker, self._start_date)
+            orig_data = self._yf.get_close_prices(self.ticker, self._start_date)
         else:
-            orig_data = yfi.get_close_prices(self.ticker, self._start_date, end_date)
+            orig_data = self._yf.get_close_prices(self.ticker, self._start_date, end_date)
         self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
         self.scaler = MinMaxScaler(feature_range=(0,1))
         self._scaled_data = self.scaler.fit_transform(self.orig_data)
@@ -64,6 +66,7 @@ class LSTMModel:
             X.append(self._scaled_data[i:(i + self.time_step), 0])
             y.append(self._scaled_data[i + self.time_step, 0])
         self.X, self.y = np.array(X), np.array(y)
+        print(self.X) # TODO remove debug print
         self.X = self.X.reshape(self.X.shape[0], self.X.shape[1], 1)
     #---------------------------------------------#
 
@@ -123,7 +126,7 @@ class LSTMModel:
     #--- Function: Check if the model needs to be updated ---#
     def needs_update(self):
         # If the model is None, it needs to be updated
-        if self._model is None or self.last_update is None or self.last_update < yfi.last_close():
+        if self._model is None or self.last_update is None or self.last_update < self._yf.last_close():
             # TODO probably not needed
             # print(f"Needs Update: ", end='')
             # if self._model is None:
@@ -165,7 +168,7 @@ class LSTMModel:
                         print('MSE value ' + str(round(mse_value, 5)) + ' is inadequate but epochs maxed out.')
                 else:
                     print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
-        self.last_update = yfi.last_close()
+        self.last_update = self._yf.last_close()
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#

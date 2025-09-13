@@ -7,12 +7,16 @@ class DBInterface:
     # Path to saved models/database
     _db_path = None
     _lstm_path = None
+    _all_dates = None
 
     #--- Constructor: Initialize the DBInterface with the path to the database ---#
-    def __init__(self, SAVE_PATH):
+    def __init__(self, SAVE_PATH, all_dates=None):
         # Set the database path
         self._db_path = os.path.join(SAVE_PATH, 'futurestock.db')
         self._lstm_path = SAVE_PATH
+        if all_dates is not None:
+            self._all_dates = all_dates
+            self._populate_dates(self._all_dates) # TODO Can't populate dates until later?
 
         # Verify the database path exists
         if not os.path.exists(self._db_path):
@@ -258,19 +262,20 @@ class DBInterface:
             conn.close()
             return row[0]  # Return the day_id
         
-        # If the day does not exist, verify we have all the days leading up to it
-        # and save all in the database
+        # If the day does not exist, try to update the table with all dates
         else:
-            self._populate_dates()
+            if self._all_dates is None:
+                raise ValueError("Day not found in the database. Please provide all_dates to populate missing dates.")
+            self._populate_dates(self._all_dates)
             cursor.execute('''
                 SELECT day_id FROM day WHERE date = ?''',
                 (target,))
             row = cursor.fetchone()
             conn.close()
             if row:
-                return row[0]
+                return row[0]  # Return the day_id
             else:
-                return -1
+                return -1  # If still not found, return -1
     #--------------------------------#
 
     #--- Function: Get today's day ID ---#
@@ -297,7 +302,7 @@ class DBInterface:
         if row:
             return row[0]
         else:
-            raise ValueError("Day ID not found in the database.")
+            ""
     #--------------------------------#
 
     #--- Function: Get all days in the database ---#
@@ -320,16 +325,14 @@ class DBInterface:
     def _populate_dates(self, dates):
         """Populate the database with all dates since the last recorded date."""
         # Get the last day recorded in the database
-        today = self.today_id()
-        date_list = []
-        # If today wasn't found, get all dates since 2025-09-01
-        if today == -1:
-            # Add all dates
-            for date in dates:
-                self._save_day(date)
-        else:
-            today = self.get_day_string(today)
-            date_list = yfi.get_all_dates(since_date=today)
+        today = self.get_day_string(self.today_id())
+        if today != "" and today in dates:
+            # find position of 'today' in the list
+            index = dates.index(today)
+            dates = dates[index+1:] # Remove the first date since it's already in the database
+
+        for date in dates:
+            self._save_day(date)
     #-----------------------------------------------#
 
     #--- Function: Perform Some Update ---#
