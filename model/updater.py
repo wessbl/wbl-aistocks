@@ -19,7 +19,7 @@ print("*** Beginning Scheduled Update ***")
 db = DBInterface(MODELS_PATH)
 tickers = db.get_tickers()
 today = db.today_id()
-yf = YFInterface(tickers, '2025-09-01')
+yf = YFInterface(tickers, '2017-01-01', '2025-09-01')
 models = []
 for ticker in tickers:
     model = Model(ticker, db, yf, IMG_PATH)

@@ -66,7 +66,6 @@ class LSTMModel:
             X.append(self._scaled_data[i:(i + self.time_step), 0])
             y.append(self._scaled_data[i + self.time_step, 0])
         self.X, self.y = np.array(X), np.array(y)
-        print(self.X) # TODO remove debug print
         self.X = self.X.reshape(self.X.shape[0], self.X.shape[1], 1)
     #---------------------------------------------#
 
@@ -141,7 +140,7 @@ class LSTMModel:
         return False
     #------------------------------------------------------------#
 
-    #--- Function: Train the model on the latest closing price ---#
+    #--- Function: Train the model up to given date ---#
     def train(self, epochs, end_date=None, mse_threshold=0):
         if end_date is None:
             self.preprocess()

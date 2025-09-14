@@ -29,7 +29,6 @@ class YFInterface:
         if isinstance(df.columns, pd.MultiIndex):
             for ticker in tickers:
                 self._prices[ticker] = df.xs(ticker, axis=1, level=0)
-                # print(self._prices[ticker].head()) #TODO remove debug print
         else:
             self._prices[tickers[0]] = df  # only one ticker
 
@@ -73,7 +72,7 @@ class YFInterface:
         """ Check if the market is closed today by checking if yfinance has a close date for today."""
         any_df = next(iter(self._prices.values()))
         data = any_df.index[-1]  # Get the last date in the index
-        date = date.strftime('%Y-%m-%d')
+        date = data.strftime('%Y-%m-%d')
         return date
     #------------------------------------------------------#
 
@@ -84,7 +83,8 @@ class YFInterface:
             raise ValueError(f"Ticker {ticker} not found in the cached prices.")
         df = self._prices[ticker]
         df = df.loc[start_date:end_date] if end_date else df.loc[start_date:]
-        return df['Close'].values
+        prices = df['Close'].values
+        return prices
     #------------------------------------------------------#
 
     #--- Function: Get the latest close prices for a ticker ---#
@@ -95,7 +95,10 @@ class YFInterface:
         
         df = self._prices[ticker]
         # Get index of start_date
-        start_index = df.index.get_loc(start_date, method='pad')
+        index = df.index.get_indexer([pd.Timestamp(start_date)], method='pad')[0]
+        if index == -1:
+            raise ValueError(f"No price data found for {ticker} on or before {start_date}.")
+        start_index = df.index[index]
         row = df.loc[start_index]
         price = row['Close']
         return price

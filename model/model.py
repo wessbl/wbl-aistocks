@@ -133,7 +133,7 @@ class Model:
         # if status is 'new', train the model up to 2025-09-01 then have it predict every day after
         if self._lstm.status == 'new':
             days = self._db.all_days()
-            self._lstm.train(50, days[0], mse_threshold=threshold)
+            self._lstm.train(epochs, days[0], threshold)
             for day in days[1:]:
                 print(f"Training model for {self.ticker} on {day}...")
                 self._lstm.train(1, day)
