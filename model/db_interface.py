@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import numpy as np
 from keras.models import load_model
 
 class DBInterface:
@@ -183,6 +184,8 @@ class DBInterface:
     #--- Function: Update the Actual Price ---#
     def save_actual_price(self, ticker, for_day, price):
         """Update the actual price in prediction table for a given ticker and day."""
+        if np.isnan(price):
+            raise ValueError(f"Price for {ticker} on day {for_day} is NaN, cannot save actual price.")
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -201,13 +204,14 @@ class DBInterface:
     #---------------------------------------#
 
     #--- Function: Double-check actual prices ---#
-    def double_check_actual_prices(self):
+    def double_check_actual_prices(self, today):
         """Double-check that all actual prices are saved in the database."""
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             SELECT ticker, for_day FROM prediction
-            WHERE actual_price IS NULL''')
+            WHERE actual_price IS NULL AND for_day < ?''',
+            (today,))
         rows = cursor.fetchall()
         conn.close()
         

@@ -59,6 +59,8 @@ class LSTMModel:
         self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
         self.scaler = MinMaxScaler(feature_range=(0,1))
         self._scaled_data = self.scaler.fit_transform(self.orig_data)
+        if np.isnan(self._scaled_data).any():
+            raise ValueError(f"Scaled data for {self.ticker} contains NaNs on {end_date}")
 
         # Create Datasets to feed LSTM
         X, y = [], []

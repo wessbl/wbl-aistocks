@@ -30,24 +30,29 @@ for ticker in tickers:
 print("done.")
 
 # Make sure all actual prices are saved
-missing = db.double_check_actual_prices()
+missing = db.double_check_actual_prices(today)
 if missing:
     print("WARNING: Some actual prices are still missing. Attempting to save...")
     for ticker, days in missing.items():
         for day in days:
             try:
-                print(f"\tWARNING: Actual price for {ticker} on day {day} is missing. Attempting to save...", end=' ')
+                print(f"\tWARNING: Actual price for {ticker} on day {day} is missing. Attempting to save...")
                 db.save_actual_price(ticker, day, yf.get_price(ticker, db.get_day_string(day)))
-                print("Successfully saved!")
+                print("saved successfully!")
             except ValueError as e:
                 print(f"Error saving actual price for {ticker} on {day}: {e}")
     print("Done checking actual prices.")
+else:
+    print("All actual prices are saved.")
 
 # Train models
 for model in models:
     print(f"Updater: Updating model for {model.ticker}...")
-    # TODO if there's a new model, make sure it's only trained on data before the start date
-    model.train(50, 0.01) # TODO set threshold to 0.0002
+    try:
+        model.train(50, 0.01) # TODO set threshold to 0.0002
+    except ValueError as e:
+        print(f"Error updating model for {model.ticker}: {e}")
+        continue
 
     print(f"Model for {model.ticker} updated.\n\n")
     # TODO update daily_accuracy table here
