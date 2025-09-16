@@ -90,6 +90,7 @@ class YFInterface:
     #--- Function: Get the latest close prices for a ticker ---#
     def get_price(self, ticker, start_date):
         """Return the closing price for the given date."""
+        print(f"YFInterface: Getting price for {ticker} on {start_date}..." )
         if ticker not in self._prices:
             raise ValueError(f"Ticker {ticker} not found in the cached prices.")
         

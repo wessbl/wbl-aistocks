@@ -43,25 +43,27 @@ class Model:
 
         # If the model doesn't exist, create a new one
         except Exception as e:
-            print(f"Error loading model for {ticker}: {e}")
-            print(f"Could not find {ticker} in database. Creating new model...", end=' ')
+            print("Creating new model...", end=' ')
             self._lstm = LSTMModel(ticker, yf=self._yf)
             self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
     #-------------------------------#
 
+    # TODO is this needed?
     #--- Function: Prepare for new day ---#
     def save_actual_price(self, for_day, price):
+        # Get the date version of day
+        day_str = self._db.get_day_string(for_day)
         # Get the price
-        price = self._yf.get_price(self.ticker, for_day)
+        price = self._yf.get_price(self.ticker, day_str)
         if price is None:
-            raise ValueError(f"Could not retrieve price for {self.ticker} on {for_day}.")
+            raise ValueError(f"Could not retrieve price for {self.ticker} on day {for_day}.")
 
         self._db.save_actual_price(self.ticker, for_day, price)
     #-------------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
-    def generate_output(self):
+    def generate_output(self, day):
         # Make prediction (data) & recommendation (text)
         print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
@@ -74,13 +76,13 @@ class Model:
         else:
             self.recommendation = "<b>Sell</b><br>FutureStock AI says this stock will change by " + percent + "%."
 
-        # Save the prediction to the database
-        today = self._db.today_id()
-        if today == -1:
-            print("Error: Could not get today's day ID from the database.")
-            return
         for i in range(1, len(prediction)): # Skip the first prediction (current price)
-            self._db.save_prediction(self.ticker, today, today+i, float(prediction[i]), bool(buy))
+            # TODO remove after testing
+            # print(f"day:{day} i:{i} prediction:{prediction[i]} buy:{buy}")
+            # # sleep for 1 second to avoid overwhelming the database
+            # import time
+            # time.sleep(1)
+            self._db.save_prediction(self.ticker, day, day+i, float(prediction[i]), bool(buy))
         
         # Create images
         mirror = self._lstm.mirror_data()
@@ -132,13 +134,15 @@ class Model:
     def train(self, epochs=5, threshold=0):
         # if status is 'new', train the model up to 2025-09-01 then have it predict every day after
         if self._lstm.status == 'new':
+            # LSTM needs date, DB needs day int. Get both
+            dates = self._db.all_dates()
             days = self._db.all_days()
-            self._lstm.train(epochs, days[0], threshold)
-            for day in days[1:]:
-                print(f"Training model for {self.ticker} on {day}...")
-                self._lstm.train(1, day)
-                self.generate_output()
-                self._db.save_actual_price(self.ticker, day, self._yf.get_price(self.ticker, day))
+            self._lstm.train(epochs, dates[0], threshold)
+            for i in range(len(days)):
+                print(f"Training model for {self.ticker} on {dates[i]}...")
+                self._lstm.train(1, dates[i])
+                self.generate_output(days[i])
+                self._db.save_actual_price(self.ticker, days[i], self._yf.get_price(self.ticker, dates[i]))
                 # TODO 0.8 - Calculate accuracy here
             
         else:
@@ -152,7 +156,7 @@ class Model:
             self._lstm.train(epochs, mse_threshold=threshold)
 
             # TODO 0.8 - Calculate accuracy here
-            self.generate_output()
+            self.generate_output(self._db.today_id())
         self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation, 'pending')
         self._status = 'pending'
     #----------------------------------------------#

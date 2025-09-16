@@ -19,21 +19,34 @@ print("*** Beginning Scheduled Update ***")
 db = DBInterface(MODELS_PATH)
 tickers = db.get_tickers()
 today = db.today_id()
-yf = YFInterface(tickers, '2017-01-01', '2025-09-01')
+yf = YFInterface(tickers, '2017-01-01')
 models = []
 for ticker in tickers:
     model = Model(ticker, db, yf, IMG_PATH)
     models.append(model)
-    if model.get_status() != 'new':
-        model.save_actual_price(today, yf.get_price(ticker, db.get_day_string(today)))
+    # TODO I don't think this  is needed, actual_price saved elsewhere
+    # if model.get_status() != 'new':
+    #     model.save_actual_price(today, yf.get_price(ticker, db.get_day_string(today))) # TODO is this needed?
 print("done.")
 
 # Make sure all actual prices are saved
-db.double_check_actual_prices()
+missing = db.double_check_actual_prices()
+if missing:
+    print("WARNING: Some actual prices are still missing. Attempting to save...")
+    for ticker, days in missing.items():
+        for day in days:
+            try:
+                print(f"\tWARNING: Actual price for {ticker} on day {day} is missing. Attempting to save...", end=' ')
+                db.save_actual_price(ticker, day, yf.get_price(ticker, db.get_day_string(day)))
+                print("Successfully saved!")
+            except ValueError as e:
+                print(f"Error saving actual price for {ticker} on {day}: {e}")
+    print("Done checking actual prices.")
 
 # Train models
 for model in models:
     print(f"Updater: Updating model for {model.ticker}...")
+    # TODO if there's a new model, make sure it's only trained on data before the start date
     model.train(50, 0.01) # TODO set threshold to 0.0002
 
     print(f"Model for {model.ticker} updated.\n\n")

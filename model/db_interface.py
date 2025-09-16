@@ -55,7 +55,7 @@ class DBInterface:
 
         cursor.execute('''
             UPDATE model
-            SET result=?, last_update=?, status=?
+            SET result=?, last_update=?, status=?, version=COALESCE(version, 0) + 1
             WHERE ticker=?
         ''', (result, last_update, status, ticker))
 
@@ -183,9 +183,6 @@ class DBInterface:
     #--- Function: Update the Actual Price ---#
     def save_actual_price(self, ticker, for_day, price):
         """Update the actual price in prediction table for a given ticker and day."""
-        # Convert the day to string format
-        for_day = self.get_day_string(for_day)
-
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -194,6 +191,12 @@ class DBInterface:
             WHERE ticker = ? AND for_day = ?''',
             (price, ticker, for_day))
         conn.commit()
+        if cursor.rowcount == 0:
+            print(f"Warning: No prediction found for {ticker} on day {for_day}. Actual price not updated.")
+        elif cursor.rowcount > 5:
+            print(f"Warning: Updated actual_price for {cursor.rowcount} rows: {ticker} on day {for_day}.")
+        else:
+            print(f"Saved actual_price to {cursor.rowcount} row(s): {ticker} on day {for_day}.")
         conn.close()
     #---------------------------------------#
 
@@ -206,16 +209,14 @@ class DBInterface:
             SELECT ticker, for_day FROM prediction
             WHERE actual_price IS NULL''')
         rows = cursor.fetchall()
-        
-        for ticker, for_day in rows:
-            try:
-                print(f"WARNING: Actual price for {ticker} on {for_day} is missing. Attempting to save...", end=' ')
-                self.save_actual_price(ticker, for_day)
-                print("Successfully saved!")
-            except ValueError as e:
-                print(f"Error saving actual price for {ticker} on {for_day}: {e}")
-        
         conn.close()
+        
+        # Create a dictionary [tickers] -> [missing days]
+        missing_data = {}
+        for ticker, for_day in rows:
+            missing_data[ticker] = missing_data.get(ticker, []) + [for_day]
+
+        return missing_data
     #---------------------------------------#
 
     #--- Function: Save Today's Accuracy ---#
@@ -305,12 +306,27 @@ class DBInterface:
             ""
     #--------------------------------#
 
-    #--- Function: Get all days in the database ---#
-    def all_days(self):
+    #--- Function: Get all dates in the database ---#
+    def all_dates(self):
         """Get the total number of days in the database."""
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('SELECT date FROM day')
+        row = cursor.fetchall()
+        conn.close()
+        if row:
+            row = [r[0] for r in row]  # Extract the date strings from the tuples
+            return row
+        else:
+            raise ValueError("No days found in the database.")
+    #----------------------------------------------#
+
+    #--- Function: Get all days in the database ---#
+    def all_days (self):
+        """Get the total number of days in the database."""
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT day_id FROM day')
         row = cursor.fetchall()
         conn.close()
         if row:
