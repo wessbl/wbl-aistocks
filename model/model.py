@@ -69,12 +69,8 @@ class Model:
         prediction = self._lstm.make_prediction()
         # TODO probably most of this is no longer needed
         percent = self._lstm.percentage_change(prediction)
-        buy = percent > 0
-        percent = str(f"{percent:.2f}")
-        if buy:
-            self.recommendation = "<b>Buy</b><br>FutureStock AI says this stock will change by " + percent + "%."
-        else:
-            self.recommendation = "<b>Sell</b><br>FutureStock AI says this stock will change by " + percent + "%."
+        self.recommendation = percent
+        buy = True if percent > 0 else False
 
         for i in range(1, len(prediction)): # Skip the first prediction (current price)
             # TODO remove after testing

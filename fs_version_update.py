@@ -13,6 +13,11 @@ new_db = os.path.join(SAVE_PATH, 'futurestock.db')
 SCRUB_DB = True # TODO set to true for release
 
 # Update to 0.7 - db_overhaul
+# TODO last changes to 0.7:
+    # Model table result should be REAL
+    # Front-end should never create a YFInterface
+    # daily_accuracy table needs to be updated minimally
+
 def update_fs():
     print("***Updating to version 0.7 - db_overhaul***")
 

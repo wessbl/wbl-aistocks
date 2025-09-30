@@ -49,9 +49,11 @@ else:
 for model in models:
     print(f"Updater: Updating model for {model.ticker}...")
     try:
+        # TODO train every day since last update
         model.train(50, 0.01) # TODO set threshold to 0.0002
     except ValueError as e:
         print(f"Error updating model for {model.ticker}: {e}")
+        print(yf.get_close_prices(model.ticker, '2017-01-01'))
         continue
 
     print(f"Model for {model.ticker} updated.\n\n")

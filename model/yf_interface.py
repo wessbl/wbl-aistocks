@@ -26,12 +26,12 @@ class YFInterface:
             params["end"] = end_date
 
         df = yf.download(**params)
+        print(df) # TODO remove after testing
         if isinstance(df.columns, pd.MultiIndex):
             for ticker in tickers:
                 self._prices[ticker] = df.xs(ticker, axis=1, level=0)
         else:
             self._prices[tickers[0]] = df  # only one ticker
-
     
     #--- Function: Get all dates since a given date ---#
     def get_all_dates(self, since_date="2025-09-01"):
@@ -84,6 +84,7 @@ class YFInterface:
         df = self._prices[ticker]
         df = df.loc[start_date:end_date] if end_date else df.loc[start_date:]
         prices = df['Close'].values
+        print(prices) # TODO remove after testing
         return prices
     #------------------------------------------------------#
 

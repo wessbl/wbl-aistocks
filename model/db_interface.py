@@ -198,8 +198,9 @@ class DBInterface:
             print(f"Warning: No prediction found for {ticker} on day {for_day}. Actual price not updated.")
         elif cursor.rowcount > 5:
             print(f"Warning: Updated actual_price for {cursor.rowcount} rows: {ticker} on day {for_day}.")
-        else:
-            print(f"Saved actual_price to {cursor.rowcount} row(s): {ticker} on day {for_day}.")
+        # TODO remove after testing
+        # else:
+        #     print(f"Saved actual_price to {cursor.rowcount} row(s): {ticker} on day {for_day}.")
         conn.close()
     #---------------------------------------#
 

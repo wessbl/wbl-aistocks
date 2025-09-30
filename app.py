@@ -45,8 +45,8 @@ def predict():
         if ticker not in dbi.get_tickers():
             # TODO handle new ticker when front-end is ready
             return jsonify({'error': f'Ticker {ticker} not found in database. Please add it first.'}), 400
-        model, recommendation, last_update, status = dbi.load_model(ticker)
-        print(f"Loaded data for {ticker}: status={status}, last_update={last_update}")
+        model, result, last_update, status = dbi.load_model(ticker)
+        print(f"Model loaded for {ticker}: result={result}, last_update={last_update}, status={status}")
 
         # Possible states are new, in_progress, pending, completed
         #   |   STATUS      |     FRONT END     |     BACK END      |
@@ -62,11 +62,18 @@ def predict():
             })
             response.headers['Cache-Control'] = 'no-store'
             return response
+        
+        # Create text recommendation if it's stil a number
+        if isinstance(result, float):
+            recommendation = f"The AI recommends to <b>{'BUY' if result > 0 else 'SELL'}</b> {ticker}.<br>"
+            recommendation += f"Predicted change over next 30 days: {result:.2f}%"
+        else:
+            recommendation = "Sorry, something went wrong and the recommendation came back empty."
 
-        elif status == 'in_progress':
+        if status == 'in_progress':
             print('Model is currently being updated')
             # If the model is in progress, we return the last recommendation
-            if model.recommendation is None:
+            if result is None:
                 recommendation = 'The AI is currently being trained on this ticker.<br>Please try again later.'
                 response = jsonify({
                     'result': recommendation,
@@ -74,7 +81,7 @@ def predict():
                 response.headers['Cache-Control'] = 'no-store'
                 return response
             else:
-                recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
+                recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + recommendation
         
         # TODO pending status is vestigial but may come in handy for debugging
         elif status == 'pending':
@@ -86,7 +93,7 @@ def predict():
             print('Model is up-to-date.')
 
         else: raise ValueError(f"Unknown status: {status}")
-
+        
         # Prepare image paths
         img1_path = 'static/images/' + ticker + 'pred.png'
         img1_path = img1_path.replace('\\', '/')
@@ -127,8 +134,6 @@ def predict():
     
 #     except Exception as e:
 #         return jsonify({'error': str(e)}), 500
-    
-
 
 #--- First Boot ---#
 if __name__ == '__main__':
