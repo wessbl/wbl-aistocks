@@ -26,6 +26,22 @@ class DBInterface:
         if not os.path.exists(self._lstm_path):
             raise FileNotFoundError(f"LSTM path not found at {self._lstm_path}")
     #-----------------------------------------------------------------------------#
+
+    #--- Function: Check if an updater is already running ---#
+    def is_updater_running(self):
+        """Check if a model has status in_progress."""
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) FROM model WHERE status = 'in_progress';
+        ''')
+        row = cursor.fetchone()
+        conn.close()
+        if row and row[0] > 0:
+            return True
+        else:
+            return False
+    #-----------------------------------------#
     
     #--- Function: Get path to LSTM file ---#
     def get_lstm_path(self, ticker):
@@ -41,7 +57,6 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
-        # TODO results probably only belong in the prediction table
         # Create the model table if it doesn't exist
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS model (
@@ -50,7 +65,7 @@ class DBInterface:
             result REAL,
             last_update INTEGER,
             status TEXT,
-            version SMALLINT DEFAULT 0
+            version INTEGER DEFAULT 0
             )
         ''')
 
@@ -66,6 +81,19 @@ class DBInterface:
                 INSERT OR REPLACE INTO model (ticker, result, last_update, status)
                 VALUES (?, ?, ?, ?)''',
                 (ticker, result, last_update, status))
+        conn.commit()
+        conn.close()
+    #------------------------------#
+
+    #--- Function: Save model accuracy to DB ---#
+    def save_model_acc(self, ticker, mape, buy_acc, balance):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE model
+            SET mape=?, buy_acc=?, balance=?
+            WHERE ticker=?
+        ''', (mape, buy_acc, balance, ticker))
         conn.commit()
         conn.close()
     #------------------------------#
@@ -163,8 +191,8 @@ class DBInterface:
             CREATE TABLE IF NOT EXISTS prediction (
                 predict_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker TEXT NOT NULL,
-                from_day SMALLINT NOT NULL,
-                for_day SMALLINT NOT NULL,
+                from_day INTEGER NOT NULL,
+                for_day INTEGER NOT NULL,
                 predicted_price REAL NOT NULL,
                 actual_price REAL,
                 buy BOOLEAN,
@@ -179,6 +207,31 @@ class DBInterface:
             (ticker, from_day, for_day, predicted_price, None, buy))
         conn.commit()
         conn.close()
+    #---------------------------------------#
+
+    #--- Function: Get Predictions from DB ---#
+    def get_predictions(self, ticker, end_day):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT ticker, from_day, for_day, predicted_price, actual_price, buy
+            FROM prediction
+            WHERE ticker = ? AND for_day = ?
+            ORDER BY for_day ASC
+        ''', (ticker, end_day))
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Return as data frame
+        import pandas as pd
+        if rows:
+            df = pd.DataFrame(
+                rows, columns=['ticker', 'from_day', 'for_day', 'predicted_price', 'actual_price', 'buy']
+            )
+            return df
+            
+        else:
+            raise ValueError("No predictions found.")
     #---------------------------------------#
 
     #--- Function: Update the Actual Price ---#
@@ -224,6 +277,102 @@ class DBInterface:
         return missing_data
     #---------------------------------------#
 
+    #--- Function: Get Max Buy Accuracy ---#
+    def get_buy_accuracy(self, ticker, return_day=False):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT buy_accuracy, day
+            FROM daily_accuracy
+            WHERE day = 
+            (
+                SELECT MAX(day) AS day
+                FROM daily_accuracy
+                WHERE ticker = ?
+            ) AND buy_accuracy IS NOT NULL''',
+            (ticker,))
+        row = cursor.fetchall()
+        conn.close()
+
+        if return_day:
+            if row and row[0][0] is not None:
+                return row[0][0], row[0][1]  # Return the max buy_accuracy and the day it occurred
+            else:
+                return 0, 1 # First day has 0 predictions on day 1
+            
+        else:
+            if row and row[0][0] is not None:
+                return row[0][0]  # Return the max buy_accuracy
+            else:
+                return 0 # First day has 0 predictions on day 1
+
+
+        # if row is not None:
+        #     if return_day:
+        #         # Return the max buy_accuracy and the day it occurred
+        #         if row[0] is None:
+        #             return 0, row[1]
+        #         return row[0], row[1]
+        #     # Return the max buy_accuracy
+        #     print(row)
+        #     return row[0] if row[0] is not None else 0
+        
+        # # The first day will be null, so return 0
+        # else:
+        #     return 0
+    #---------------------------------------#
+
+    # TODO remove after testing
+    #--- Function: Get Max Buy Accuracy Average ---#
+    # def get_buy_acc_avg(self, ticker):
+    #     conn = sqlite3.connect(self._db_path)
+    #     cursor = conn.cursor()
+    #     cursor.execute('''
+    #         SELECT buy_accuracy FROM daily_accuracy
+    #         WHERE ticker = ? AND buy_accuracy IS NOT NULL''',
+    #         (ticker,))
+    #     row = cursor.fetchone()
+    #     conn.close()
+    #     if row and row[0] is not None:
+    #         # Return the avg buy_accuracy
+    #         avg = max(row) / len(row)
+    #         return round(avg, 2)
+    #     else:
+    #         return 0
+    #---------------------------------------#
+
+    #--- Function: Get All MAPE values ---#
+    def get_mape(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT mape FROM daily_accuracy
+            WHERE ticker = ? AND mape IS NOT NULL''',
+            (ticker,))
+        rows = cursor.fetchall()
+        conn.close()
+        if rows:
+            return [row[0] for row in rows]  # Return list of MAPE values
+        else:
+            return []
+    #---------------------------------------#
+
+    #--- Function: Get Simulated Profit ---#
+    def get_simulated_profit(self, ticker, day):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT simulated_profit FROM daily_accuracy
+            WHERE ticker = ? AND day = ?''',
+            (ticker, day))
+        row = cursor.fetchone()
+        conn.close()
+        if row and row[0] is not None:
+            return row[0]   # Return the simulated_profit
+        else:
+            return 1000.0  # Default starting profit
+    #---------------------------------------#
+
     #--- Function: Save Today's Accuracy ---#
     def save_accuracy(self, ticker, day, mape, buy_accuracy, simulated_profit):
         conn = sqlite3.connect(self._db_path)
@@ -232,9 +381,9 @@ class DBInterface:
         CREATE TABLE IF NOT EXISTS daily_accuracy (
             dailyacc_id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticker TEXT NOT NULL,
-            day SMALLINT NOT NULL,
+            day INTEGER NOT NULL,
             mape REAL,
-            buy_accuracy REAL,
+            buy_accuracy INTEGER,
             simulated_profit REAL,
             UNIQUE(ticker, day)
         )
@@ -247,6 +396,59 @@ class DBInterface:
             (ticker, day, mape, buy_accuracy, simulated_profit))
         conn.commit()
         conn.close()
+    #---------------------------------------#
+
+    #--- Function: Find entries in daily_accuracy with NULL values ---#
+    def daily_acc_empty_cells(self, tickers, today):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        for ticker in tickers:
+            # Most of the time, only today's entry will be missing
+            cursor.execute('''
+                    SELECT COUNT(*) FROM daily_accuracy
+                    WHERE ticker = ?''',
+                    (ticker,))
+            count = cursor.fetchone()[0]
+            if count >= today - 1:
+                # Insert today's entry with NULL values
+                cursor.execute('''
+                    INSERT OR IGNORE INTO daily_accuracy (ticker, day)
+                    VALUES (?, ?)''',
+                    (ticker, today))
+                conn.commit()
+            
+            else:
+                # Insert any missing days with NULL values
+                print(f"Ticker {ticker} has {count} entries, expected {today - 1}. Adding missing days...", end=' ')
+                for day in range(1, today):
+                    # Check if it's already in the database
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM daily_accuracy
+                        WHERE ticker = ? AND day = ?''',
+                        (ticker, day))
+                    count = cursor.fetchone()[0]
+                    if count == 0:
+                        # Insert the missing day with NULL values
+                        cursor.execute('''
+                            INSERT OR IGNORE INTO daily_accuracy (ticker, day)
+                            VALUES (?, ?)''',
+                            (ticker, day))
+                        conn.commit()
+                print("done.")
+        # Return all entries with NULL values
+        cursor.execute('''
+            SELECT ticker, day FROM daily_accuracy
+            WHERE mape IS NULL OR buy_accuracy IS NULL OR simulated_profit IS NULL
+        ''')
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Create a dictionary [tickers] -> [missing days]
+        missing_data = {}
+        for ticker, day in rows:
+            missing_data[ticker] = missing_data.get(ticker, []) + [day]
+
+        return missing_data
     #---------------------------------------#
     
     #--- Function: Get the integer ID of the day ---#

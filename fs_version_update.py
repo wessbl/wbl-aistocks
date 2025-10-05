@@ -14,9 +14,8 @@ SCRUB_DB = True # TODO set to true for release
 
 # Update to 0.7 - db_overhaul
 # TODO last changes to 0.7:
-    # Model table result should be REAL
-    # Front-end should never create a YFInterface
     # daily_accuracy table needs to be updated minimally
+    # make sure table declarations are the same in db_interface and here
 
 def update_fs():
     print("***Updating to version 0.7 - db_overhaul***")
@@ -65,9 +64,12 @@ def update_fs():
                 model_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ticker TEXT UNIQUE NOT NULL,
                 result REAL,
+                mape REAL,
+                buy_acc REAL,
+                balance REAL,
                 last_update INTEGER,
                 status TEXT,
-                version SMALLINT DEFAULT 0
+                version INTEGER DEFAULT 0
                 )
             ''')
             conn.commit()
@@ -131,8 +133,9 @@ def update_fs():
             ticker TEXT NOT NULL,
             day INTEGER NOT NULL,
             mape REAL,
-            buy_accuracy REAL,
-            simulated_profit REAL
+            buy_accuracy INTEGER,
+            simulated_profit REAL,
+            UNIQUE(ticker, day)
         )
         ''')
         conn.commit()

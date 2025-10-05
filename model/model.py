@@ -4,8 +4,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from model.lstm_model import LSTMModel
-from model.db_interface import DBInterface
-from model.yf_interface import YFInterface
 
 # A wrapper class for LSTMModels that generates images
 class Model:
@@ -45,7 +43,7 @@ class Model:
         except Exception as e:
             print("Creating new model...", end=' ')
             self._lstm = LSTMModel(ticker, yf=self._yf)
-            self._db.save_model(self.ticker, self._lstm, status='new')
+            self._db.save_model(self.ticker, self._lstm, status='new') # TODO this will need to be moved to app.py
             print("done.")
     #-------------------------------#
 
@@ -139,7 +137,6 @@ class Model:
                 self._lstm.train(1, dates[i])
                 self.generate_output(days[i])
                 self._db.save_actual_price(self.ticker, days[i], self._yf.get_price(self.ticker, dates[i]))
-                # TODO 0.8 - Calculate accuracy here
             
         else:
             # Check if the model needs to be updated
@@ -150,9 +147,8 @@ class Model:
             self._set_status(1)
             # Train, generate output, and save to DB
             self._lstm.train(epochs, mse_threshold=threshold)
-
-            # TODO 0.8 - Calculate accuracy here
             self.generate_output(self._db.today_id())
+        
         self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation, 'pending')
         self._status = 'pending'
     #----------------------------------------------#
