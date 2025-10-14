@@ -46,31 +46,25 @@ if missing:
 else:
     print("All actual prices are saved.")
 
-# Train models
+# Train models and calculate daily accuracy
+print()
+blank_entries = db.daily_acc_empty_cells(tickers, today) # DB will update the table before returning the blank entries
 for model in models:
-    print(f"Updater: Updating model for {model.ticker}...")
+    print(f"Updater: Training model for {model.ticker}...")
     try:
         # TODO train every day since last update
         model.train(50, 0.01) # TODO set threshold to 0.0002
-    except ValueError as e:
-        print(f"Error updating model for {model.ticker}: {e}")
-        print(yf.get_close_prices(model.ticker, '2017-01-01'))
-        continue
 
-    print(f"Model for {model.ticker} updated.\n\n")
+        # Calculate Daily Accuracy for any missing days
+        ticker = model.ticker
+        if blank_entries[ticker] is not None: # TODO getting KeyError when ticker not in blank_entries?
+            print(f"\nUpdater: Calculating daily accuracy for {ticker}...")
+            # For each day that is missing for this ticker, calculate and save the daily accuracy
+            for day in blank_entries[ticker]:
+                mape = None
+                buy_acc = None
+                balance = 100.0 # Start with $100
 
-# Calculate Daily Accuracy
-print("Calculating daily accuracy for all models...")
-db.do_update("DELETE FROM daily_accuracy;") # TODO remove after testing
-blank_entries = {}
-blank_entries = db.daily_acc_empty_cells(tickers, today) # DB will update the table before returning the blank entries
-if blank_entries:
-    for ticker, days in blank_entries.items():
-        for day in days:
-            mape = None
-            buy_acc = None
-            balance = 100.0 # Start with $100
-            try:
                 # Save generic first day values
                 if day == 1:
                     db.save_accuracy(ticker, day, mape, buy_acc, balance)
@@ -79,7 +73,7 @@ if blank_entries:
                     # Calculate today's Mean Absolute Percentage Error (MAPE)
                     df = db.get_predictions(ticker, day)
                     df['error'] = abs((df['actual_price'] - df['predicted_price']) / df['actual_price'])
-                    # print(df) # TODO remove after testing
+
                     # Handle division by zero just in case
                     df = df[df['actual_price'] != 0]
                     mape = df['error'].mean() * 100
@@ -97,45 +91,67 @@ if blank_entries:
 
                     # Find if buy was true for yesterday's predictions
                     yesterday_buy = yesterday_pred['buy'].iloc[0]
-                    buy_acc = db.get_buy_accuracy(ticker) # TODO buy_acc is None
-                    if yesterday_buy == stock_went_up: 
+                    buy_acc = db.get_buy_accuracy(ticker)
+                    if yesterday_buy == stock_went_up:
                         buy_acc += 1
 
                     # Calculate simulated profit
                     balance = db.get_simulated_profit(ticker, yesterday)
                     if yesterday_pred['buy'].iloc[0]: # If the model recommended buying yesterday
-                        if stock_went_up:
-                            percentage = (today_price - yesterday_price) / yesterday_price
-                            profit = balance * percentage
-                            profit = round(profit, 2)
-                            balance += profit
+                        percentage = (today_price - yesterday_price) / yesterday_price
+                        profit = balance * percentage
+                        balance += profit
+                        balance = round(balance, 2)
+                    
+                    # Debug Prints
+                    # if yesterday_buy == stock_went_up:
+                    #     if stock_went_up:
+                    #         print(f"\tMade a profit of ${profit}! New balance: ${balance}.")
+                    #     else:
+                    #         # TODO this is a repetitive calculation, optimize if you want to keep these prints
+                    #         percentage = (today_price - yesterday_price) / yesterday_price
+                    #         profit = balance * percentage
+                    #         profit = round(profit, 2)
+                    #         print(f"\tAvoided a loss of ${-profit}! Balance remains: ${balance}.")
+                    # else:
+                    #     if stock_went_up:
+                    #         # TODO this is a repetitive calculation, optimize if you want to keep these prints
+                    #         percentage = (today_price - yesterday_price) / yesterday_price
+                    #         profit = balance * percentage
+                    #         profit = round(profit, 2)
+                    #         print(f"\tMissed a profit of ${profit}. Balance remains: ${balance}.")
+                    #     else:
+                    #         print(f"\tIncurred a loss of ${-profit}. New balance: ${balance}.")
                     
                     # Save to DB
-                    print(f"Saving daily accuracy for {ticker} on day {day}...", end=' ')
+                    print(f"Day {day}: MAPE: {mape}, Buy Accuracy: {buy_acc}, Balance: {balance}") # TODO remove after testing
                     db.save_accuracy(ticker, day, mape, buy_acc, balance)
-                    print("saved.")
 
-                    # Calculate all-time MAPE; get previous values as well as today's
-                    print(f"Calculating and saving to model table...", end=' ')
-                    mape_list = db.get_mape(ticker)
-                    mape_list.append(mape)
-                    all_time_mape = sum(mape_list) / len(mape_list)
-                    all_time_mape = round(all_time_mape, 2)
+            # Calculate all-time MAPE; get previous values as well as today's
+            print(f"Calculating and saving to model table...")
+            mape_list = db.get_mape(ticker)
+            all_time_mape = sum(mape_list) / len(mape_list)
+            all_time_mape = round(all_time_mape, 2)
 
-                    # Calculate the model's all-time buy accuracy
-                    max_acc, length = db.get_buy_accuracy(ticker, return_day=True)
-                    all_time_acc = 0.0
-                    if length > 1:
-                        length -= 1 # Subtract 1 to not count the first day
-                        all_time_acc = max_acc * 100 / length
-                        all_time_acc = round(all_time_acc, 2)
+            # TODO move this outside of the day loop
+            # Calculate the model's all-time buy accuracy
+            max_acc, length = db.get_buy_accuracy(ticker, return_day=True)
+            all_time_acc = max_acc * 100 / length
+            all_time_acc = round(all_time_acc, 2)
 
-                    # Save all_time data to DB
-                    db.save_model_acc(ticker, all_time_mape, all_time_acc, balance)
-                    print("done.")
-                    
-            except ValueError as e:
-                print(f"Error calculating daily accuracy for {ticker} on {day}: {e}")
-    print("Done calculating daily accuracy.")
+            # Save all_time data to DB
+            print(f"\tMAPE: {all_time_mape}, Accuracy: {all_time_acc}, Balance: {balance}")
+            db.save_model_acc(ticker, all_time_mape, all_time_acc, balance)
+            print("done.")
+
+            # TODO test with first day only
+            # TODO it's calculating for days where actual_price is NULL, possibly because of the way blank_entries is calculated?
+
+    except ValueError as e:
+        print(f"Error updating model for {model.ticker}: {e}")
+        print(yf.get_close_prices(model.ticker, '2017-01-01'))
+        continue
+
+    print(f"Model for {model.ticker} updated.\n")
 
 print("***Update complete!***")

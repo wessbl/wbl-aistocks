@@ -120,7 +120,7 @@ class DBInterface:
 
         if row:
             result, last_update, status = row
-            print("Loaded data! Ticker:\t", ticker)
+            print("Loaded data for ticker: ", ticker)
             # print("\nLoaded data! Ticker:\t", ticker,
             #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
             #     "\nResult:\t\t", result, "\nStatus:\t\t", status)
@@ -282,14 +282,10 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT buy_accuracy, day
+            SELECT MAX(buy_accuracy), day
             FROM daily_accuracy
-            WHERE day = 
-            (
-                SELECT MAX(day) AS day
-                FROM daily_accuracy
-                WHERE ticker = ?
-            ) AND buy_accuracy IS NOT NULL''',
+            WHERE ticker = ?
+                AND buy_accuracy IS NOT NULL''',
             (ticker,))
         row = cursor.fetchall()
         conn.close()
@@ -305,21 +301,6 @@ class DBInterface:
                 return row[0][0]  # Return the max buy_accuracy
             else:
                 return 0 # First day has 0 predictions on day 1
-
-
-        # if row is not None:
-        #     if return_day:
-        #         # Return the max buy_accuracy and the day it occurred
-        #         if row[0] is None:
-        #             return 0, row[1]
-        #         return row[0], row[1]
-        #     # Return the max buy_accuracy
-        #     print(row)
-        #     return row[0] if row[0] is not None else 0
-        
-        # # The first day will be null, so return 0
-        # else:
-        #     return 0
     #---------------------------------------#
 
     # TODO remove after testing
@@ -438,7 +419,7 @@ class DBInterface:
         # Return all entries with NULL values
         cursor.execute('''
             SELECT ticker, day FROM daily_accuracy
-            WHERE mape IS NULL OR buy_accuracy IS NULL OR simulated_profit IS NULL
+            WHERE simulated_profit IS NULL
         ''')
         rows = cursor.fetchall()
         conn.close()

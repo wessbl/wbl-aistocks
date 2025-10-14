@@ -37,7 +37,6 @@ class LSTMModel:
             self._model = model
             self.last_update = last_update
             self.status = status
-            print("Model loaded.")
         else:
             # Get data & train brand-new model
             self.ticker = ticker
