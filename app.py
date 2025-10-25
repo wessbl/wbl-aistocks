@@ -43,7 +43,7 @@ def predict():
         # Load the ticker information from the database
         dbi = DBInterface(os.path.join(BASE_DIR, 'static', 'models'))
         if ticker not in dbi.get_tickers():
-            # TODO handle new ticker when front-end is ready
+            # TODO 0.8 handle new ticker entry
             return jsonify({'error': f'Ticker {ticker} not found in database. Please add it first.'}), 400
         model, result, last_update, status = dbi.load_model(ticker)
         print(f"Model loaded for {ticker}: result={result}, last_update={last_update}, status={status}")
@@ -52,7 +52,7 @@ def predict():
         #   |   STATUS      |     FRONT END     |     BACK END      |
         #   | new           |   No Image Lookup |  Nothing          |
         #   | in_progress   |   Not affected    |  Updating         |
-        #   | pending       |   Needs refresh   |  Update finished  |
+        #   | pending       |   Needs refresh   |  Update finished  |   # TODO remove pending, front end always requests latest data now
         #   | completed     |   Refreshed       |  Update finished  |
 
         if status == 'new':
@@ -66,7 +66,7 @@ def predict():
         # Create text recommendation if it's stil a number
         if isinstance(result, float):
             recommendation = f"The AI recommends to <b>{'BUY' if result > 0 else 'SELL'}</b> {ticker}.<br>"
-            recommendation += f"Predicted change over next 30 days: {result:.2f}%"
+            recommendation += f"Predicted change: {result:.2f}%"
         else:
             recommendation = "Sorry, something went wrong and the recommendation came back empty."
 
@@ -115,7 +115,7 @@ def predict():
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
 
-# TODO front end not set up for this yet but the method may be useful
+# TODO 0.8 front end not set up for this yet but the method may be useful
 # @app.route('/add_ticker', methods=['POST'])
 # def add_ticker():
 #     stock_symbol = request.form.get('requested_stock_symbol', '').strip().upper()
@@ -130,7 +130,7 @@ def predict():
         
 #         # Create a new model and add it to the models dictionary
 #         models[stock_symbol] = Model(stock_symbol, MODELS_PATH, IMG_PATH)
-#         return jsonify({'message': f'Model for {stock_symbol} added successfully.'}), 200
+#         return jsonify({'message': f'Model for {stock_symbol} added successfully. It will be trained in 24 hours.'}), 200
     
 #     except Exception as e:
 #         return jsonify({'error': str(e)}), 500

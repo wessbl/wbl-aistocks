@@ -15,20 +15,28 @@ IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
 print("*** Beginning Scheduled Update ***")
 
-# Check if an updater is already running
+# Instantiate classes and key variables
+error_occurred = False
 db = DBInterface(MODELS_PATH)
-if db.is_updater_running():
-    print("Another updater instance is already running. Exiting.")
-    exit()
-
-# Instantiate classes
 tickers = db.get_tickers()
-today = db.today_id()
 yf = YFInterface(tickers, '2017-01-01')
+db.populate_dates(yf.get_all_dates()) # Ensure dates table is populated
+today = db.today_num()
 models = []
 for ticker in tickers:
     model = Model(ticker, db, yf, IMG_PATH)
     models.append(model)
+
+# TODO remove this: Set all tickers to 'completed' status
+# for ticker in tickers:
+#     db.set_status(ticker, 'completed')
+
+# Check if an updater is already running
+if db.is_updater_running():
+    print("Another updater instance is already running. Exiting.")
+    exit()
+# Set the first ticker to 'in_progress' to indicate updater is running
+db.set_status(tickers[0], 'in_progress')
 
 # Make sure all actual prices are saved
 missing = db.double_check_actual_prices(today)
@@ -37,27 +45,41 @@ if missing:
     for ticker, days in missing.items():
         for day in days:
             try:
-                print(f"\tWARNING: Actual price for {ticker} on day {day} is missing. Attempting to save...")
+                # print(f"\tWARNING: Actual price for {ticker} on day {day} is missing. Attempting to save...")
                 db.save_actual_price(ticker, day, yf.get_price(ticker, db.get_day_string(day)))
-                print("saved successfully!")
+                # print("saved successfully!")
             except ValueError as e:
-                print(f"Error saving actual price for {ticker} on {day}: {e}")
+                error_occurred = True
+                print(f"\tError saving actual price for {ticker} on {day}: {e}")
     print("Done checking actual prices.")
 else:
     print("All actual prices are saved.")
 
 # Train models and calculate daily accuracy
 print()
-blank_entries = db.daily_acc_empty_cells(tickers, today) # DB will update the table before returning the blank entries
+last_model = None
 for model in models:
     print(f"Updater: Training model for {model.ticker}...")
     try:
+        # Manage status, which acts as a lock to prevent multiple updaters running simultaneously
+        new = False
+        if model._lstm.status == 'new':
+            new = True
+        model._set_status(1) # in_progress 
+        if last_model is not None:
+            last_model._set_status(2) # pending. Set this one second so there's always one 'in_progress'
+        
         # TODO train every day since last update
-        model.train(50, 0.01) # TODO set threshold to 0.0002
+        if new:
+            model.train(50, 0.01) # TODO set epochs to something(1-5?), and threshold to 0.0002
+        else:
+            model.train(1, 0.01) # TODO set epochs to something(1-5?), and threshold to 0.0002
 
         # Calculate Daily Accuracy for any missing days
         ticker = model.ticker
-        if blank_entries[ticker] is not None: # TODO getting KeyError when ticker not in blank_entries?
+        # TODO change this to be per-ticker
+        blank_entries = db.daily_acc_empty_cells(tickers, today) # DB will update the table before returning the blank entries
+        if ticker in blank_entries and blank_entries[ticker] is not None:
             print(f"\nUpdater: Calculating daily accuracy for {ticker}...")
             # For each day that is missing for this ticker, calculate and save the daily accuracy
             for day in blank_entries[ticker]:
@@ -71,6 +93,7 @@ for model in models:
                 # Calculate values since previous day
                 else:
                     # Calculate today's Mean Absolute Percentage Error (MAPE)
+                    print(f"Getting {ticker} predictions for day {day}...")
                     df = db.get_predictions(ticker, day)
                     df['error'] = abs((df['actual_price'] - df['predicted_price']) / df['actual_price'])
 
@@ -146,12 +169,24 @@ for model in models:
 
             # TODO test with first day only
             # TODO it's calculating for days where actual_price is NULL, possibly because of the way blank_entries is calculated?
+        else:
+            print(f"Updater: Daily accuracy already up to date for {ticker}.")
+        last_model = model
 
     except ValueError as e:
-        print(f"Error updating model for {model.ticker}: {e}")
+        error_occurred = True
+        print(f"ValueError updating model for {model.ticker}: {e}")
         print(yf.get_close_prices(model.ticker, '2017-01-01'))
         continue
 
     print(f"Model for {model.ticker} updated.\n")
 
+# Wrap up updates
+if last_model is not None:
+    last_model._set_status(2) # pending
+if error_occurred:
+    erroneous_tickers = db.finish_update()
+    print(f"Errors occurred on tickers {erroneous_tickers}.")
+else:
+    print("No errors occurred!")
 print("***Update complete!***")

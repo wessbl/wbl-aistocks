@@ -41,7 +41,7 @@ class LSTMModel:
             # Get data & train brand-new model
             self.ticker = ticker
             self.status = 'new'
-            self.last_update = '2025-09-01'
+            self.last_update = '2025-10-20'
             self._model = self._create_model(model)
         self._yf = yf
     #------------------------------#
@@ -72,7 +72,7 @@ class LSTMModel:
 
     #--- Function: Set model properties and compile ---#
     def _create_model(self, model):
-        # TODO do some quick testing to find which values work best for each ticker
+        # TODO 0.9 do some quick testing to find which values work best for each ticker
         # Build and compile the LSTM, if needed
         if (model == None):
             model = Sequential()
@@ -123,10 +123,11 @@ class LSTMModel:
         return prediction
     #------------------------------------------------------#
 
+    # TODO remove after testing
     #--- Function: Check if the model needs to be updated ---#
-    def needs_update(self):
+    # def needs_update(self):
         # If the model is None, it needs to be updated
-        if self._model is None or self.last_update is None or self.last_update < self._yf.last_close():
+        # if self._model is None or self.last_update is None or self.last_update < self._yf.last_close():
             # TODO probably not needed
             # print(f"Needs Update: ", end='')
             # if self._model is None:
@@ -135,10 +136,10 @@ class LSTMModel:
             #     print("Last update is None.")   #TODO make sure last_update is being set!
             # else:
             #     print(f"Last update {self.last_update} is before {yfi.last_close()}.")
-            return True
+            # return True
 
         # Otherwise, no update needed
-        return False
+        # return False
     #------------------------------------------------------------#
 
     #--- Function: Train the model up to given date ---#

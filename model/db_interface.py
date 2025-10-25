@@ -17,7 +17,7 @@ class DBInterface:
         self._lstm_path = SAVE_PATH
         if all_dates is not None:
             self._all_dates = all_dates
-            self._populate_dates(self._all_dates) # TODO Can't populate dates until later?
+            self.populate_dates(self._all_dates) # TODO Can't populate dates until later?
 
         # Verify the database path exists
         if not os.path.exists(self._db_path):
@@ -38,10 +38,34 @@ class DBInterface:
         row = cursor.fetchone()
         conn.close()
         if row and row[0] > 0:
+            print(f"Found {row[0]} model(s) with status 'in_progress'.")
             return True
         else:
             return False
     #-----------------------------------------#
+
+    #--- Function: Get first training day ---#
+    def train_start_day(self, ticker):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+
+        # Left join to find the first day that predictions weren't made
+        cursor.execute('''
+            SELECT d.day_num
+            FROM day d
+            LEFT JOIN prediction p ON d.day_num = p.from_day
+                AND p.ticker = ?
+            WHERE p.from_day IS NULL
+            ORDER BY d.day_num ASC
+            LIMIT 1;
+        ''', (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]  # Return the first missing day_num
+        else:
+            return -1  # All days have predictions
+    #----------------------------------------#
     
     #--- Function: Get path to LSTM file ---#
     def get_lstm_path(self, ticker):
@@ -170,15 +194,15 @@ class DBInterface:
     #-----------------------------------#
 
     #--- Function: Save Day to DB ---#
-    def _save_day(self, day_string):
+    def _save_day(self, day_num, day_string):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
         # Insert or update the day data
         cursor.execute('''
-            INSERT INTO day (date)
-            VALUES (?)''',
-            (day_string,))
+            INSERT INTO day (day_num, date)
+            VALUES (?, ?)''',
+            (day_num, day_string,))
         conn.commit()
         conn.close()
     #--------------------------------#
@@ -196,7 +220,8 @@ class DBInterface:
                 predicted_price REAL NOT NULL,
                 actual_price REAL,
                 buy BOOLEAN,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(ticker, from_day, for_day)
             );
         ''')
 
@@ -231,7 +256,7 @@ class DBInterface:
             return df
             
         else:
-            raise ValueError("No predictions found.")
+            raise ValueError(f"No predictions found for day {end_day}.")
     #---------------------------------------#
 
     #--- Function: Update the Actual Price ---#
@@ -250,6 +275,7 @@ class DBInterface:
         if cursor.rowcount == 0:
             print(f"Warning: No prediction found for {ticker} on day {for_day}. Actual price not updated.")
         elif cursor.rowcount > 5:
+            # TODO BUG this was showing up when the day table's index/day_num was messed up
             print(f"Warning: Updated actual_price for {cursor.rowcount} rows: {ticker} on day {for_day}.")
         # TODO remove after testing
         # else:
@@ -400,7 +426,7 @@ class DBInterface:
             
             else:
                 # Insert any missing days with NULL values
-                print(f"Ticker {ticker} has {count} entries, expected {today - 1}. Adding missing days...", end=' ')
+                print(f"Ticker {ticker} has {count} entries, expected {today - 1}. Adding days in daily_acc...", end=' ')
                 for day in range(1, today):
                     # Check if it's already in the database
                     cursor.execute('''
@@ -433,45 +459,39 @@ class DBInterface:
     #---------------------------------------#
     
     #--- Function: Get the integer ID of the day ---#
-    def get_day_id(self, target):
+    def get_day_num(self, target):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS day (
-            day_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT
-            );
-        ''')
-        cursor.execute('''
-            SELECT day_id FROM day WHERE date = ?''',
+            SELECT day_num FROM day WHERE date = ?''',
             (target,))
         row = cursor.fetchone()
 
         if row:
             conn.close()
-            return row[0]  # Return the day_id
+            return row[0]  # Return the day_num
         
         # If the day does not exist, try to update the table with all dates
         else:
             if self._all_dates is None:
-                raise ValueError("Day not found in the database. Please provide all_dates to populate missing dates.")
-            self._populate_dates(self._all_dates)
+                raise ValueError("Day not found in the database. You may need to populate dates.")
+            self.populate_dates(self._all_dates)
             cursor.execute('''
-                SELECT day_id FROM day WHERE date = ?''',
+                SELECT day_num FROM day WHERE date = ?''',
                 (target,))
             row = cursor.fetchone()
             conn.close()
             if row:
-                return row[0]  # Return the day_id
+                return row[0]  # Return the day_num
             else:
                 return -1  # If still not found, return -1
     #--------------------------------#
 
-    #--- Function: Get today's day ID ---#
-    def today_id(self):
+    #--- Function: Get today's day num ---#
+    def today_num(self):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT day_id FROM day ORDER BY day_id DESC LIMIT 1')
+        cursor.execute('SELECT day_num FROM day ORDER BY day_num DESC LIMIT 1')
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -481,11 +501,11 @@ class DBInterface:
             return -1
     #--------------------------------#
 
-    #--- Function: Get string from day id ---#
-    def get_day_string(self, day_id):
+    #--- Function: Get string from day num ---#
+    def get_day_string(self, day_num):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT date FROM day WHERE day_id = ?', (day_id,))
+        cursor.execute('SELECT date FROM day WHERE day_num = ?', (day_num,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -514,7 +534,7 @@ class DBInterface:
         """Get the total number of days in the database."""
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT day_id FROM day')
+        cursor.execute('SELECT day_num FROM day')
         row = cursor.fetchall()
         conn.close()
         if row:
@@ -526,18 +546,55 @@ class DBInterface:
 
 
     #--- Function: Add all missing dates to the database ---#
-    def _populate_dates(self, dates):
+    def populate_dates(self, dates):
         """Populate the database with all dates since the last recorded date."""
+        self._all_dates = dates
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS day (
+                day_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                day_num INTEGER,
+                date TEXT
+            );''')
+        conn.commit()
+        conn.close()
+
         # Get the last day recorded in the database
-        today = self.get_day_string(self.today_id())
+        today = self.get_day_string(self.today_num())
+        index = 0
+
+        # Check if we've already added dates
         if today != "" and today in dates:
             # find position of 'today' in the list
-            index = dates.index(today)
-            dates = dates[index+1:] # Remove the first date since it's already in the database
-
-        for date in dates:
-            self._save_day(date)
+            index = dates.index(today) + 1  # Start from the next day
+        
+        for date in dates[index:]:
+            day_num = dates.index(date) + 1  # Day numbers start at 1
+            self._save_day(day_num, date)
     #-----------------------------------------------#
+
+    #--- Function: Wrap-up updater process ---#
+    def finish_update(self):
+        """Set all models with status in_progress to pending."""
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT ticker FROM model
+            WHERE status = 'in_progress'
+        ''')
+        rows = cursor.fetchall()
+        erroneous_tickers = [row[0] for row in rows]
+
+        cursor.execute('''
+            UPDATE model
+            SET status = 'pending'
+            WHERE status = 'in_progress'
+        ''')
+        conn.commit()
+        conn.close()
+        return erroneous_tickers
+    #-----------------------------------------#
 
     #--- Function: Perform Some Update ---#
     def do_update(self, instructions):

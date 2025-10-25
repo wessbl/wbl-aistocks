@@ -34,7 +34,7 @@ class YFInterface:
             self._prices[tickers[0]] = df  # only one ticker
     
     #--- Function: Get all dates since a given date ---#
-    def get_all_dates(self, since_date="2025-09-01"):
+    def get_all_dates(self, since_date="2025-10-20"):
         """
         Get all dates since a given date.
         :param since_date: The date to start from in 'YYYY-MM-DD' format.
@@ -84,7 +84,7 @@ class YFInterface:
         df = self._prices[ticker]
         df = df.loc[start_date:end_date] if end_date else df.loc[start_date:]
         prices = df['Close'].values
-        print(prices) # TODO remove after testing
+        # print(prices) # TODO remove after testing
         return prices
     #------------------------------------------------------#
 

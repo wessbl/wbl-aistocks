@@ -14,7 +14,6 @@ SCRUB_DB = True # TODO set to true for release
 
 # Update to 0.7 - db_overhaul
 # TODO last changes to 0.7:
-    # daily_accuracy table needs to be updated minimally
     # make sure table declarations are the same in db_interface and here
 
 def update_fs():
@@ -24,9 +23,12 @@ def update_fs():
     try:
         # Prep: Initialize YFI and DBI
         print("\tPrepping YF and DB interfaces...", end=' ')
-        yf = YFInterface(['AAPL'], '2025-09-01')
+        yf = YFInterface(['AAPL'], '2025-10-20')
         dates = yf.get_all_dates()
-        db = DBInterface(SAVE_PATH, dates)
+        if not SCRUB_DB:
+            db = DBInterface(SAVE_PATH, dates)
+        else:
+            db = DBInterface(SAVE_PATH)
         print("done.")
 
         # Step 1: Rename DB file
@@ -102,7 +104,8 @@ def update_fs():
 
         # Step 6 Create Day table
         print("\t6. Creating Day table if it doesn't exist...", end=' ')
-        result = db.get_day_id('2099-01-01')
+        db.populate_dates(dates)  # This will create the table if it doesn't exist
+        result = db.get_day_num('2099-01-01')
         if result != -1:
             print("Day table is up to date!")
         else: 
