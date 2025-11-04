@@ -405,8 +405,9 @@ class DBInterface:
         conn.close()
     #---------------------------------------#
 
-    #--- Function: Find entries in daily_accuracy with NULL values ---#
-    def daily_acc_empty_cells(self, tickers, today):
+    #--- Function: Prepare daily_accuracy table ---#
+    def prepare_daily_acc(self, tickers):
+        today = self.today_num()
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         for ticker in tickers:
@@ -416,18 +417,10 @@ class DBInterface:
                     WHERE ticker = ?''',
                     (ticker,))
             count = cursor.fetchone()[0]
-            if count >= today - 1:
-                # Insert today's entry with NULL values
-                cursor.execute('''
-                    INSERT OR IGNORE INTO daily_accuracy (ticker, day)
-                    VALUES (?, ?)''',
-                    (ticker, today))
-                conn.commit()
-            
-            else:
+            if count < today:
                 # Insert any missing days with NULL values
-                print(f"Ticker {ticker} has {count} entries, expected {today - 1}. Adding days in daily_acc...", end=' ')
-                for day in range(1, today):
+                print(f"Ticker {ticker} has {count} entries, expected {today}. Adding days in daily_acc...", end=' ')
+                for day in range(1, today+1): #TODO verify this is right, check up to today
                     # Check if it's already in the database
                     cursor.execute('''
                         SELECT COUNT(*) FROM daily_accuracy
@@ -442,6 +435,13 @@ class DBInterface:
                             (ticker, day))
                         conn.commit()
                 print("done.")
+    #----------------------------------------------#
+
+    #--- Function: Find entries in daily_accuracy with NULL values ---#
+    def daily_acc_empty_cells(self, tickers, today):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+
         # Return all entries with NULL values
         cursor.execute('''
             SELECT ticker, day FROM daily_accuracy
@@ -558,7 +558,6 @@ class DBInterface:
                 date TEXT
             );''')
         conn.commit()
-        conn.close()
 
         # Get the last day recorded in the database
         today = self.get_day_string(self.today_num())

@@ -21,6 +21,7 @@ db = DBInterface(MODELS_PATH)
 tickers = db.get_tickers()
 yf = YFInterface(tickers, '2017-01-01')
 db.populate_dates(yf.get_all_dates()) # Ensure dates table is populated
+db.prepare_daily_acc(tickers)  # Add new dates
 today = db.today_num()
 models = []
 for ticker in tickers:
@@ -80,7 +81,6 @@ for model in models:
         # TODO change this to be per-ticker
         blank_entries = db.daily_acc_empty_cells(tickers, today) # DB will update the table before returning the blank entries
         if ticker in blank_entries and blank_entries[ticker] is not None:
-            print(f"\nUpdater: Calculating daily accuracy for {ticker}...")
             # For each day that is missing for this ticker, calculate and save the daily accuracy
             for day in blank_entries[ticker]:
                 mape = None

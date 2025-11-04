@@ -146,7 +146,7 @@ class Model:
             self._db.save_actual_price(self.ticker, days[i], self._yf.get_price(self.ticker, dates[i]))
 
         # TODO remove after testing
-        # if status is 'new', train the model up to 2025-10-20 then have it predict every day after
+        # if status is 'new', train the model up to 2025-10-30 then have it predict every day after
         # if self._lstm.status == 'new':
         #     # LSTM needs date, DB needs day int. Get both
         #     dates = self._db.all_dates()

@@ -41,7 +41,7 @@ class LSTMModel:
             # Get data & train brand-new model
             self.ticker = ticker
             self.status = 'new'
-            self.last_update = '2025-10-20'
+            self.last_update = '2025-10-30'
             self._model = self._create_model(model)
         self._yf = yf
     #------------------------------#
@@ -155,6 +155,7 @@ class LSTMModel:
         while (mse_value > mse_threshold) and (counter < epochs):
             epochs_ = epochs
             # Only do 5 epochs at a time if we're going for threshold
+            # TODO do a mix of epochs and threshold
             if mse_threshold > 0:
                 epochs_ = 5
             history = self._model.fit(self.X, self.y, epochs=epochs_, batch_size=64)
