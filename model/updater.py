@@ -58,7 +58,7 @@ else:
 
 # Train models and calculate daily accuracy
 print()
-last_model = None
+last_model = None # Keep track of last model so there's always one set to in_progress
 for model in models:
     print(f"Updater: Training model for {model.ticker}...")
     try:
@@ -66,9 +66,9 @@ for model in models:
         new = False
         if model._lstm.status == 'new':
             new = True
-        model._set_status(1) # in_progress 
+        model.set_status(2) # in_progress 
         if last_model is not None:
-            last_model._set_status(2) # pending. Set this one second so there's always one 'in_progress'
+            last_model.set_status(3)
         
         # TODO train every day since last update
         if new:
@@ -183,7 +183,7 @@ for model in models:
 
 # Wrap up updates
 if last_model is not None:
-    last_model._set_status(2) # pending
+    last_model.set_status(3) # completed
 if error_occurred:
     erroneous_tickers = db.finish_update()
     print(f"Errors occurred on tickers {erroneous_tickers}.")

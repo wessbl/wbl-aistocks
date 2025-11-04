@@ -48,11 +48,10 @@ def predict():
         model, result, last_update, status = dbi.load_model(ticker)
         print(f"Model loaded for {ticker}: result={result}, last_update={last_update}, status={status}")
 
-        # Possible states are new, in_progress, pending, completed
+        # Possible states are new, in_progress, completed
         #   |   STATUS      |     FRONT END     |     BACK END      |
         #   | new           |   No Image Lookup |  Nothing          |
         #   | in_progress   |   Not affected    |  Updating         |
-        #   | pending       |   Needs refresh   |  Update finished  |   # TODO remove pending, front end always requests latest data now
         #   | completed     |   Refreshed       |  Update finished  |
 
         if status == 'new':
@@ -83,12 +82,6 @@ def predict():
             else:
                 recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + recommendation
         
-        # TODO pending status is vestigial but may come in handy for debugging
-        elif status == 'pending':
-            print('Model has been updated...', end=' ')
-            dbi.set_status(ticker, 'completed')
-            print('status set to completed.')
-
         elif status == 'completed':
             print('Model is up-to-date.')
 

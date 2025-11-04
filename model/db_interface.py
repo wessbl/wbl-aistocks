@@ -72,7 +72,7 @@ class DBInterface:
         return os.path.join(self._lstm_path, ticker + '.keras')
     
     #--- Function: Save model to DB ---#
-    def save_model(self, ticker, model, last_update=None, result='', status='pending'):
+    def save_model(self, ticker, model, last_update=None, result='', status='completed'):
         # Save model as file
         path = self.get_lstm_path(ticker)
         model._model.save(path)
@@ -575,7 +575,7 @@ class DBInterface:
 
     #--- Function: Wrap-up updater process ---#
     def finish_update(self):
-        """Set all models with status in_progress to pending."""
+        """Set all models with status in_progress to completed."""
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -587,7 +587,7 @@ class DBInterface:
 
         cursor.execute('''
             UPDATE model
-            SET status = 'pending'
+            SET status = 'completed'
             WHERE status = 'in_progress'
         ''')
         conn.commit()

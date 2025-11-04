@@ -164,7 +164,7 @@ class Model:
         #         print(f"Model for {self.ticker} is up-to-date, no training needed.")
         #         return
         #     # Set status to in_progress
-        #     self._set_status(1)
+        #     self.set_status(1)
         #     # Train, generate output, and save to DB
         #     self._lstm.train(epochs, mse_threshold=threshold)
         #     self.generate_output(self._db.today_num())
@@ -174,12 +174,12 @@ class Model:
     #----------------------------------------------#
 
     #--- Function: Change status ---#
-    def _set_status(self, status_int):
+    def set_status(self, status_int):
         temp_status = ''
         if status_int == 1:
-            temp_status = 'in_progress'
+            temp_status = 'new'
         elif status_int == 2:
-            temp_status = 'pending'
+            temp_status = 'in_progress'
         elif status_int == 3:
             temp_status = 'completed'
         else:

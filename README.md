@@ -52,7 +52,8 @@ wess.lancaster@gmail.com
 
 ## Version History
 * 0.6
-    * Program now automatically auto-updates at 4:30pm EST
+    * Program has an updater file that can be run by a service automatically
+    * Users no longer need to wait for a model to train
     * Models are now stored with a status for update handling
     * If user accesses a ticker during an update a message is displayed above the older results
     * Removed browser caching to ensure that the latest prediction is always shown
