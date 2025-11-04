@@ -148,12 +148,6 @@ if __name__ == '__main__':
         if not result:
             print("Update failed, exiting app.")
             exit(1)
-
-        # TODO: Uncomment this block to run the updater immediately
-        # else:
-        #     print("app.py: Adding models and running model updater...")
-        #     import model.updater # This will run the updater.py script
-        #     print("app.py: Update completed successfully.")
     
-    app.run(debug=True, use_reloader=False) # TODO set to False for production
+    app.run(debug=True, use_reloader=False) # set to False for production
 #---------------------#

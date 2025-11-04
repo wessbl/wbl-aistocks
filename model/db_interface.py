@@ -17,7 +17,7 @@ class DBInterface:
         self._lstm_path = SAVE_PATH
         if all_dates is not None:
             self._all_dates = all_dates
-            self.populate_dates(self._all_dates) # TODO Can't populate dates until later?
+            self.populate_dates(self._all_dates)
 
         # Verify the database path exists
         if not os.path.exists(self._db_path):
@@ -87,6 +87,9 @@ class DBInterface:
             model_id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticker TEXT UNIQUE NOT NULL,
             result REAL,
+            mape REAL,
+            buy_acc REAL,
+            balance REAL,
             last_update INTEGER,
             status TEXT,
             version INTEGER DEFAULT 0
@@ -272,14 +275,11 @@ class DBInterface:
             WHERE ticker = ? AND for_day = ?''',
             (price, ticker, for_day))
         conn.commit()
-        if cursor.rowcount == 0:
+        if cursor.rowcount == 0 and for_day > 1:
             print(f"Warning: No prediction found for {ticker} on day {for_day}. Actual price not updated.")
         elif cursor.rowcount > 5:
-            # TODO BUG this was showing up when the day table's index/day_num was messed up
+            # this was showing up when the day table's index/day_num was messed up
             print(f"Warning: Updated actual_price for {cursor.rowcount} rows: {ticker} on day {for_day}.")
-        # TODO remove after testing
-        # else:
-        #     print(f"Saved actual_price to {cursor.rowcount} row(s): {ticker} on day {for_day}.")
         conn.close()
     #---------------------------------------#
 
@@ -327,25 +327,6 @@ class DBInterface:
                 return row[0][0]  # Return the max buy_accuracy
             else:
                 return 0 # First day has 0 predictions on day 1
-    #---------------------------------------#
-
-    # TODO remove after testing
-    #--- Function: Get Max Buy Accuracy Average ---#
-    # def get_buy_acc_avg(self, ticker):
-    #     conn = sqlite3.connect(self._db_path)
-    #     cursor = conn.cursor()
-    #     cursor.execute('''
-    #         SELECT buy_accuracy FROM daily_accuracy
-    #         WHERE ticker = ? AND buy_accuracy IS NOT NULL''',
-    #         (ticker,))
-    #     row = cursor.fetchone()
-    #     conn.close()
-    #     if row and row[0] is not None:
-    #         # Return the avg buy_accuracy
-    #         avg = max(row) / len(row)
-    #         return round(avg, 2)
-    #     else:
-    #         return 0
     #---------------------------------------#
 
     #--- Function: Get All MAPE values ---#
@@ -420,7 +401,7 @@ class DBInterface:
             if count < today:
                 # Insert any missing days with NULL values
                 print(f"Ticker {ticker} has {count} entries, expected {today}. Adding days in daily_acc...", end=' ')
-                for day in range(1, today+1): #TODO verify this is right, check up to today
+                for day in range(1, today+1): # from day 1 to today
                     # Check if it's already in the database
                     cursor.execute('''
                         SELECT COUNT(*) FROM daily_accuracy
@@ -437,25 +418,21 @@ class DBInterface:
                 print("done.")
     #----------------------------------------------#
 
-    #--- Function: Find entries in daily_accuracy with NULL values ---#
-    def daily_acc_empty_cells(self, tickers, today):
+    #--- Function: Find null entries for the ticker ---#
+    def daily_acc_empty_cells(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
         # Return all entries with NULL values
         cursor.execute('''
-            SELECT ticker, day FROM daily_accuracy
+            SELECT day FROM daily_accuracy
             WHERE simulated_profit IS NULL
-        ''')
-        rows = cursor.fetchall()
+                AND ticker = ?''', 
+            (ticker,))
+        row = cursor.fetchall()
         conn.close()
-
-        # Create a dictionary [tickers] -> [missing days]
-        missing_data = {}
-        for ticker, day in rows:
-            missing_data[ticker] = missing_data.get(ticker, []) + [day]
-
-        return missing_data
+        if row:
+            return [r[0] for r in row]  # Return list of days with NULL entries
     #---------------------------------------#
     
     #--- Function: Get the integer ID of the day ---#

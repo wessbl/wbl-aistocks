@@ -123,25 +123,6 @@ class LSTMModel:
         return prediction
     #------------------------------------------------------#
 
-    # TODO remove after testing
-    #--- Function: Check if the model needs to be updated ---#
-    # def needs_update(self):
-        # If the model is None, it needs to be updated
-        # if self._model is None or self.last_update is None or self.last_update < self._yf.last_close():
-            # TODO probably not needed
-            # print(f"Needs Update: ", end='')
-            # if self._model is None:
-            #     print("Model is None.")
-            # elif self.last_update is None:
-            #     print("Last update is None.")   #TODO make sure last_update is being set!
-            # else:
-            #     print(f"Last update {self.last_update} is before {yfi.last_close()}.")
-            # return True
-
-        # Otherwise, no update needed
-        # return False
-    #------------------------------------------------------------#
-
     #--- Function: Train the model up to given date ---#
     def train(self, epochs, end_date=None, mse_threshold=0):
         if end_date is None:
@@ -155,7 +136,7 @@ class LSTMModel:
         while (mse_value > mse_threshold) and (counter < epochs):
             epochs_ = epochs
             # Only do 5 epochs at a time if we're going for threshold
-            # TODO do a mix of epochs and threshold
+            # TODO 0.9 do a mix of epochs and threshold
             if mse_threshold > 0:
                 epochs_ = 5
             history = self._model.fit(self.X, self.y, epochs=epochs_, batch_size=64)

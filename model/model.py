@@ -34,48 +34,26 @@ class Model:
         # First, try to load an existing model
         try:
             keras_model, self.recommendation, last_update, self._status = self._db.load_model(ticker)
-            # if self._status == 'new':
-            #     self._lstm = LSTMModel(ticker, keras_model, last_update, self._status)
-            # else: 
             self._lstm = LSTMModel(ticker, keras_model, last_update, self._status, self._yf)
 
         # If the model doesn't exist, create a new one
         except Exception as e:
             print("Creating new model...", end=' ')
             self._lstm = LSTMModel(ticker, yf=self._yf)
-            self._db.save_model(self.ticker, self._lstm, status='new') # TODO this will need to be moved to app.py
+            self._db.save_model(self.ticker, self._lstm, status='new')
             print("done.")
     #-------------------------------#
-
-    # TODO is this needed?
-    #--- Function: Prepare for new day ---#
-    def save_actual_price(self, for_day, price):
-        # Get the date version of day
-        day_str = self._db.get_day_string(for_day)
-        # Get the price
-        price = self._yf.get_price(self.ticker, day_str)
-        if price is None:
-            raise ValueError(f"Could not retrieve price for {self.ticker} on day {for_day}.")
-
-        self._db.save_actual_price(self.ticker, for_day, price)
-    #-------------------------------------#
     
     #--- Function: Predict, generate imgs, save ---#
     def generate_output(self, day):
         # Make prediction (data) & recommendation (text)
         print(f"Generating output for {self.ticker}...")
         prediction = self._lstm.make_prediction()
-        # TODO probably most of this is no longer needed
         percent = self._lstm.percentage_change(prediction)
         self.recommendation = percent
         buy = True if percent > 0 else False
 
         for i in range(1, len(prediction)): # Skip the first prediction (current price)
-            # TODO remove after testing
-            # print(f"day:{day} i:{i} prediction:{prediction[i]} buy:{buy}")
-            # # sleep for 1 second to avoid overwhelming the database
-            # import time
-            # time.sleep(1)
             self._db.save_prediction(self.ticker, day, day+i, float(prediction[i]), bool(buy))
         
         # Create images
@@ -128,46 +106,20 @@ class Model:
     def train(self, epochs=5, threshold=0):
         # Train model starting with first missing date in prediction table
         # TODO 0.8 check for model's first date instead of first date in DB
-        print(f"Model: Epochs={epochs}, Threshold={threshold}") # TODO BUG it's doing 5 epochs when being told to do 1 from updater
         dates = self._db.all_dates()
         days = self._db.all_days()
         first_missing_day = self._db.train_start_day(self.ticker)
         if first_missing_day == -1:
             print(f"Model: {self.ticker} is up-to-date, no training needed.")
             return
-        print(f"First missing day for {self.ticker} is {first_missing_day}.") #TODO may be irrelevant
         
         # Train on all days from first_missing_day to the end
         start_index = days.index(first_missing_day)
         for i in range(start_index, len(days)): # BUG first_missing_day is being used as index
             print(f"Training {self.ticker} on day {days[i]}: {dates[i]}...")
-            self._lstm.train(epochs, dates[i], threshold) # TODO double-check what epochs is set to
+            self._lstm.train(epochs, dates[i], threshold)
             self.generate_output(days[i])
             self._db.save_actual_price(self.ticker, days[i], self._yf.get_price(self.ticker, dates[i]))
-
-        # TODO remove after testing
-        # if status is 'new', train the model up to 2025-10-30 then have it predict every day after
-        # if self._lstm.status == 'new':
-        #     # LSTM needs date, DB needs day int. Get both
-        #     dates = self._db.all_dates()
-        #     days = self._db.all_days()
-        #     self._lstm.train(epochs, dates[0], threshold)
-        #     for i in range(len(days)):
-        #         print(f"Training model for {self.ticker} on {dates[i]}...")
-        #         self._lstm.train(1, dates[i])
-        #         self.generate_output(days[i])
-        #         self._db.save_actual_price(self.ticker, days[i], self._yf.get_price(self.ticker, dates[i]))
-            
-        # else:
-        #     # Check if the model needs to be updated
-        #     if not self._lstm.needs_update():
-        #         print(f"Model for {self.ticker} is up-to-date, no training needed.")
-        #         return
-        #     # Set status to in_progress
-        #     self.set_status(1)
-        #     # Train, generate output, and save to DB
-        #     self._lstm.train(epochs, mse_threshold=threshold)
-        #     self.generate_output(self._db.today_num())
 
         # Save model, which is still in progress
         self._db.save_model(self.ticker, self._lstm, self._lstm.last_update, self.recommendation, 'in_progress')

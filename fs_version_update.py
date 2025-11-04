@@ -10,12 +10,9 @@ old_db = os.path.join(SAVE_PATH, 'models.db')
 new_db = os.path.join(SAVE_PATH, 'futurestock.db')
 
 # If you would like to scrub the database, set this to True
-SCRUB_DB = True # TODO set to true for release
+SCRUB_DB = True
 
 # Update to 0.7 - db_overhaul
-# TODO last changes to 0.7:
-    # make sure table declarations are the same in db_interface and here
-
 def update_fs():
     print("***Updating to version 0.7 - db_overhaul***")
 
@@ -122,7 +119,8 @@ def update_fs():
                 predicted_price REAL NOT NULL,
                 actual_price REAL,
                 buy BOOLEAN,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(ticker, from_day, for_day)
             );
         ''')
         conn.commit()

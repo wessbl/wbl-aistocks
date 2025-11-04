@@ -28,7 +28,7 @@ for ticker in tickers:
     model = Model(ticker, db, yf, IMG_PATH)
     models.append(model)
 
-# TODO remove this: Set all tickers to 'completed' status
+# Set all tickers to 'completed' status in case you killed the updater halfway through
 # for ticker in tickers:
 #     db.set_status(ticker, 'completed')
 
@@ -70,19 +70,21 @@ for model in models:
         if last_model is not None:
             last_model.set_status(3)
         
-        # TODO train every day since last update
-        if new:
-            model.train(50, 0.01) # TODO set epochs to something(1-5?), and threshold to 0.0002
-        else:
-            model.train(1, 0.01) # TODO set epochs to something(1-5?), and threshold to 0.0002
-
+        # Train every day since last update
+        # TODO 0.9 do initial training since the LSTM's start date (2017-01-01)
+        model.train(epochs=1) # TODO 0.7 set threshold to 0.0002
+        
         # Calculate Daily Accuracy for any missing days
         ticker = model.ticker
-        # TODO change this to be per-ticker
-        blank_entries = db.daily_acc_empty_cells(tickers, today) # DB will update the table before returning the blank entries
-        if ticker in blank_entries and blank_entries[ticker] is not None:
-            # For each day that is missing for this ticker, calculate and save the daily accuracy
-            for day in blank_entries[ticker]:
+        blank_entries = db.daily_acc_empty_cells(ticker)
+        if not blank_entries or len(blank_entries) == 0:
+            print(f"{ticker} already has all daily accuracy calculations completed.")
+            last_model = model
+            continue
+
+        # For each day that is missing for this ticker, calculate and save the daily accuracy
+        else:
+            for day in blank_entries:
                 mape = None
                 buy_acc = None
                 balance = 100.0 # Start with $100
@@ -131,23 +133,25 @@ for model in models:
                     #     if stock_went_up:
                     #         print(f"\tMade a profit of ${profit}! New balance: ${balance}.")
                     #     else:
-                    #         # TODO this is a repetitive calculation, optimize if you want to keep these prints
+                    #         # this is a repetitive calculation, optimize if you want to keep these prints
                     #         percentage = (today_price - yesterday_price) / yesterday_price
                     #         profit = balance * percentage
                     #         profit = round(profit, 2)
                     #         print(f"\tAvoided a loss of ${-profit}! Balance remains: ${balance}.")
                     # else:
                     #     if stock_went_up:
-                    #         # TODO this is a repetitive calculation, optimize if you want to keep these prints
+                    #         # this is a repetitive calculation, optimize if you want to keep these prints
                     #         percentage = (today_price - yesterday_price) / yesterday_price
                     #         profit = balance * percentage
                     #         profit = round(profit, 2)
                     #         print(f"\tMissed a profit of ${profit}. Balance remains: ${balance}.")
                     #     else:
                     #         print(f"\tIncurred a loss of ${-profit}. New balance: ${balance}.")
+
+                    # TODO 0.7 How is it possible for there to boe 0, 50, or 66% buy accuracy over 3 days? Should be 0, 33, 66, or 100%
                     
                     # Save to DB
-                    print(f"Day {day}: MAPE: {mape}, Buy Accuracy: {buy_acc}, Balance: {balance}") # TODO remove after testing
+                    print(f"Day {day}: MAPE: {mape}, Buy Accuracy: {buy_acc}, Balance: {balance}")
                     db.save_accuracy(ticker, day, mape, buy_acc, balance)
 
             # Calculate all-time MAPE; get previous values as well as today's
@@ -156,7 +160,6 @@ for model in models:
             all_time_mape = sum(mape_list) / len(mape_list)
             all_time_mape = round(all_time_mape, 2)
 
-            # TODO move this outside of the day loop
             # Calculate the model's all-time buy accuracy
             max_acc, length = db.get_buy_accuracy(ticker, return_day=True)
             all_time_acc = max_acc * 100 / length
@@ -167,10 +170,8 @@ for model in models:
             db.save_model_acc(ticker, all_time_mape, all_time_acc, balance)
             print("done.")
 
-            # TODO test with first day only
-            # TODO it's calculating for days where actual_price is NULL, possibly because of the way blank_entries is calculated?
-        else:
-            print(f"Updater: Daily accuracy already up to date for {ticker}.")
+        # TODO 0.7 test with first day only
+        # TODO 0.7 is it calculating for days where actual_price is NULL? possibly because of the way blank_entries is calculated
         last_model = model
 
     except ValueError as e:

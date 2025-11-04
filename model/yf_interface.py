@@ -26,7 +26,6 @@ class YFInterface:
             params["end"] = end_date
 
         df = yf.download(**params)
-        #print(df) # TODO remove after testing
         if isinstance(df.columns, pd.MultiIndex):
             for ticker in tickers:
                 self._prices[ticker] = df.xs(ticker, axis=1, level=0)
@@ -84,7 +83,6 @@ class YFInterface:
         df = self._prices[ticker]
         df = df.loc[start_date:end_date] if end_date else df.loc[start_date:]
         prices = df['Close'].values
-        # print(prices) # TODO remove after testing
         return prices
     #------------------------------------------------------#
 
@@ -105,4 +103,4 @@ class YFInterface:
         return price
     #------------------------------------------------------#
 
-    # TODO add function to check ticker validity when front-end is ready
+    # TODO 0.8 add function to check ticker validity when front-end is ready
