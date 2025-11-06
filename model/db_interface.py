@@ -304,29 +304,21 @@ class DBInterface:
     #---------------------------------------#
 
     #--- Function: Get Max Buy Accuracy ---#
-    def get_buy_accuracy(self, ticker, return_day=False):
+    def get_buy_accuracy(self, ticker):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT MAX(buy_accuracy), day
+            SELECT MAX(buy_accuracy)
             FROM daily_accuracy
-            WHERE ticker = ?
-                AND buy_accuracy IS NOT NULL''',
+            WHERE ticker = ?''',
             (ticker,))
         row = cursor.fetchall()
         conn.close()
 
-        if return_day:
-            if row and row[0][0] is not None:
-                return row[0][0], row[0][1]  # Return the max buy_accuracy and the day it occurred
-            else:
-                return 0, 1 # First day has 0 predictions on day 1
-            
+        if row and row[0][0] is not None:
+            return row[0][0]  # Return the max buy_accuracy
         else:
-            if row and row[0][0] is not None:
-                return row[0][0]  # Return the max buy_accuracy
-            else:
-                return 0 # First day has 0 predictions on day 1
+            return 0 # First day has 0 predictions on day 1
     #---------------------------------------#
 
     #--- Function: Get All MAPE values ---#

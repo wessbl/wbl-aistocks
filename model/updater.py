@@ -107,7 +107,7 @@ for model in models:
                     # Calculate buy accuracy
                     today_price = yf.get_price(ticker, db.get_day_string(day))
                     yesterday = day - 1
-                    yesterday_price = yf.get_price(ticker, db.get_day_string(yesterday))
+                    yesterday_price = yf.get_price(ticker, db.get_day_string(yesterday)) # TODO 0.7 what about when day is 1?
                     stock_went_up = today_price > yesterday_price
 
                     # Get yesterday's predictions
@@ -116,9 +116,11 @@ for model in models:
 
                     # Find if buy was true for yesterday's predictions
                     yesterday_buy = yesterday_pred['buy'].iloc[0]
+                    print(f"\tYesterday's prediction to buy: {yesterday_buy}, stock went up: {stock_went_up}") # TODO remove debug print
                     buy_acc = db.get_buy_accuracy(ticker)
                     if yesterday_buy == stock_went_up:
-                        buy_acc += 1
+                        buy_acc += 1 # TODO BUG misses when buy = 0 and stock_went_up = False
+                        print(f"\tAccurate for day {day}!")
 
                     # Calculate simulated profit
                     balance = db.get_simulated_profit(ticker, yesterday)
@@ -129,29 +131,28 @@ for model in models:
                         balance = round(balance, 2)
                     
                     # Debug Prints
-                    # if yesterday_buy == stock_went_up:
-                    #     if stock_went_up:
-                    #         print(f"\tMade a profit of ${profit}! New balance: ${balance}.")
-                    #     else:
-                    #         # this is a repetitive calculation, optimize if you want to keep these prints
-                    #         percentage = (today_price - yesterday_price) / yesterday_price
-                    #         profit = balance * percentage
-                    #         profit = round(profit, 2)
-                    #         print(f"\tAvoided a loss of ${-profit}! Balance remains: ${balance}.")
-                    # else:
-                    #     if stock_went_up:
-                    #         # this is a repetitive calculation, optimize if you want to keep these prints
-                    #         percentage = (today_price - yesterday_price) / yesterday_price
-                    #         profit = balance * percentage
-                    #         profit = round(profit, 2)
-                    #         print(f"\tMissed a profit of ${profit}. Balance remains: ${balance}.")
-                    #     else:
-                    #         print(f"\tIncurred a loss of ${-profit}. New balance: ${balance}.")
+                    if yesterday_buy == stock_went_up:
+                        if stock_went_up:
+                            print(f"\tGOOD: Made a profit of ${profit}! New balance: ${balance}.")
+                        else:
+                            # this is a repetitive calculation, optimize if you want to keep these prints
+                            percentage = (today_price - yesterday_price) / yesterday_price
+                            profit = balance * percentage
+                            profit = round(profit, 2)
+                            print(f"\tGOOD: Avoided a loss of ${-profit}! Balance remains: ${balance}.")
+                    else:
+                        if stock_went_up:
+                            # this is a repetitive calculation, optimize if you want to keep these prints
+                            percentage = (today_price - yesterday_price) / yesterday_price
+                            profit = balance * percentage
+                            profit = round(profit, 2)
+                            print(f"\tFAIL: Missed a profit of ${profit}. Balance remains: ${balance}.")
+                        else:
+                            print(f"\tFAIL: Incurred a loss of ${-profit}. New balance: ${balance}.")
 
-                    # TODO 0.7 How is it possible for there to boe 0, 50, or 66% buy accuracy over 3 days? Should be 0, 33, 66, or 100%
                     
                     # Save to DB
-                    print(f"Day {day}: MAPE: {mape}, Buy Accuracy: {buy_acc}, Balance: {balance}")
+                    print(f"\tDay {day}: MAPE: {mape}, Buy Accuracy: {buy_acc}, Balance: {balance}")
                     db.save_accuracy(ticker, day, mape, buy_acc, balance)
 
             # Calculate all-time MAPE; get previous values as well as today's
@@ -161,8 +162,8 @@ for model in models:
             all_time_mape = round(all_time_mape, 2)
 
             # Calculate the model's all-time buy accuracy
-            max_acc, length = db.get_buy_accuracy(ticker, return_day=True)
-            all_time_acc = max_acc * 100 / length
+            max_acc = db.get_buy_accuracy(ticker)
+            all_time_acc = max_acc * 100 / (today - 1) # Exclude day 1 since no prediction was made for it
             all_time_acc = round(all_time_acc, 2)
 
             # Save all_time data to DB
@@ -170,7 +171,7 @@ for model in models:
             db.save_model_acc(ticker, all_time_mape, all_time_acc, balance)
             print("done.")
 
-        # TODO 0.7 test with first day only
+        # TODO 0.7 How is it possible for there to be 0, 50, or 66% buy accuracy over 3 days? Should be 0, 33, 66, or 100%
         # TODO 0.7 is it calculating for days where actual_price is NULL? possibly because of the way blank_entries is calculated
         last_model = model
 

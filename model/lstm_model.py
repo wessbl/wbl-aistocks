@@ -41,7 +41,7 @@ class LSTMModel:
             # Get data & train brand-new model
             self.ticker = ticker
             self.status = 'new'
-            self.last_update = '2025-10-30'
+            self.last_update = '2025-10-21'
             self._model = self._create_model(model)
         self._yf = yf
     #------------------------------#
