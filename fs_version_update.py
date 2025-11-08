@@ -20,7 +20,7 @@ def update_fs():
     try:
         # Prep: Initialize YFI and DBI
         print("\tPrepping YF and DB interfaces...", end=' ')
-        yf = YFInterface(['AAPL'], '2025-10-22')
+        yf = YFInterface(['AAPL'], '2025-11-01')
         dates = yf.get_all_dates()
         if not SCRUB_DB:
             db = DBInterface(SAVE_PATH, dates)
@@ -118,6 +118,7 @@ def update_fs():
                 for_day INTEGER NOT NULL,
                 predicted_price REAL NOT NULL,
                 actual_price REAL,
+                ape REAL,
                 buy BOOLEAN,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(ticker, from_day, for_day)

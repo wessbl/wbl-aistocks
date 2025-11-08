@@ -222,6 +222,7 @@ class DBInterface:
                 for_day INTEGER NOT NULL,
                 predicted_price REAL NOT NULL,
                 actual_price REAL,
+                ape REAL,
                 buy BOOLEAN,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(ticker, from_day, for_day)
@@ -242,24 +243,46 @@ class DBInterface:
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT ticker, from_day, for_day, predicted_price, actual_price, buy
+            SELECT predict_id,
+                from_day,
+                for_day,
+                predicted_price,
+                actual_price,
+                ape,
+                buy
             FROM prediction
-            WHERE ticker = ? AND for_day = ?
+            WHERE ticker = ?
+                AND for_day = ?
             ORDER BY for_day ASC
         ''', (ticker, end_day))
         rows = cursor.fetchall()
         conn.close()
 
         # Return as data frame
-        import pandas as pd
         if rows:
-            df = pd.DataFrame(
-                rows, columns=['ticker', 'from_day', 'for_day', 'predicted_price', 'actual_price', 'buy']
-            )
-            return df
-            
+            import pandas as pd
+            predictions = pd.DataFrame(rows, columns=['predict_id', 'from_day', 'for_day',
+                    'predicted_price', 'actual_price', 'ape', 'buy'])
+            return predictions            
         else:
             raise ValueError(f"No predictions found for day {end_day}.")
+    #---------------------------------------#
+
+    #--- Function: Get APEs from DB ---#
+    def get_apes(self, ticker, up_to_day):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT ape FROM prediction
+            WHERE ticker = ? AND for_day <= ? AND ape IS NOT NULL
+        ''', (ticker, up_to_day))
+        rows = cursor.fetchall()
+        conn.close()
+
+        if rows:
+            return [row[0] for row in rows]  # Return list of APE values
+        else:
+            return []  # No APEs found
     #---------------------------------------#
 
     #--- Function: Update the Actual Price ---#
@@ -321,20 +344,21 @@ class DBInterface:
             return 0 # First day has 0 predictions on day 1
     #---------------------------------------#
 
-    #--- Function: Get All MAPE values ---#
-    def get_mape(self, ticker):
+    #--- Function: Get MAPE values ---#
+    def get_mape(self, ticker, day):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
             SELECT mape FROM daily_accuracy
-            WHERE ticker = ? AND mape IS NOT NULL''',
-            (ticker,))
+            WHERE ticker = ?
+                AND day = ?''',
+            (ticker, day))
         rows = cursor.fetchall()
         conn.close()
         if rows:
-            return [row[0] for row in rows]  # Return list of MAPE values
+            return rows[0][0]   # Return the MAPE value
         else:
-            return []
+            return None 
     #---------------------------------------#
 
     #--- Function: Get Simulated Profit ---#
@@ -354,7 +378,7 @@ class DBInterface:
     #---------------------------------------#
 
     #--- Function: Save Today's Accuracy ---#
-    def save_accuracy(self, ticker, day, mape, buy_accuracy, simulated_profit):
+    def save_accuracy(self, ticker, day, ape, mape, buy_accuracy, simulated_profit):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -374,6 +398,20 @@ class DBInterface:
             INSERT OR REPLACE INTO daily_accuracy (ticker, day, mape, buy_accuracy, simulated_profit)
             VALUES (?, ?, ?, ?, ?)''',
             (ticker, day, mape, buy_accuracy, simulated_profit))
+        
+        conn.commit()
+        conn.close()
+    #---------------------------------------#
+
+    #-- Function: Save APE for each prediction ---#
+    def save_ape(self, id, ape):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE prediction
+            SET ape = ?
+            WHERE predict_id = ?''',
+            (ape, id))
         conn.commit()
         conn.close()
     #---------------------------------------#

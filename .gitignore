@@ -3,7 +3,6 @@
 *.swp
 *.pyc
 *.log
-*.sql
 start_gunicorn.sh
 venv/
 static/
