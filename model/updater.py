@@ -72,8 +72,7 @@ for model in models:
         
         # Train every day since last update
         # TODO 0.9 do initial training since the LSTM's start date (2017-01-01)
-        # TODO 0.7 set threshold to 0.0002
-        model.train(epochs=1)
+        model.train(epochs=15, threshold=0.0002)
         
         # Calculate Daily Accuracy for any missing days
         ticker = model.ticker
@@ -94,56 +93,41 @@ for model in models:
 
                 # Save generic first day values
                 if day == 1:
-                    print(f"\nDay {day}:") # TODO remove
                     db.save_accuracy(ticker, day, ape, mape, buy_acc, balance)
-                    print("\t1: Saved day 1 accuracy") # TODO remove
+                
                 # Calculate values since previous day
                 else:
-                    print(f"\nDay {day}:") # TODO remove
                     # Get all predictions up to today
                     df = db.get_predictions(ticker, day) # why is the ape Nan for AAPL and None for AMZN??
-                    print("\t1: Got predictions") # TODO remove
-                    # print(f"\t\tdf = \n{df}") # TODO remove
                     
                     # Calculate today's Absolute Percentage Errors (APE) and store them
                     ape_df = df[df['ape'].isna()]
                     ape_df = ape_df[ape_df['for_day'] <= day]
-                    # print(f"\t\tape_df before calc = \n{ape_df}") # TODO remove
                     ape_df['ape'] = abs((ape_df['actual_price'] - ape_df['predicted_price']) / ape_df['actual_price']) * 100
                     # Create dictionary of ids -> newly calculated apes
-                    # print(f"\t\tape_df after calc = \n{ape_df}") # TODO remove
                     today_apes = ape_df[['predict_id', 'ape']].to_dict(orient='records')
-                    # print(f"\t\ttoday_apes = \n{today_apes}") # TODO remove
                     for entry in today_apes:
                         id = entry['predict_id']
                         ape = entry['ape']
-                        # print(f"\t\tSaving APE at prediction ID {id}: {ape}") # TODO remove
                         db.save_ape(id, ape)
-                    print("\t2: Calculated and saved APEs") # TODO remove
                     
                     # Calculate Mean Absolute Percentage Error (MAPE) up to today
                     apes = db.get_apes(ticker, day) # Refresh df to include newly saved apes
                     mape = sum(apes) / len(apes)
                     mape = round(mape, 2)
-                    print(f"\t3: Calculated MAPE: {mape}") # TODO remove
 
                     # Calculate buy accuracy
                     today_price = yf.get_price(ticker, db.get_day_string(day))
                     yesterday = day - 1
                     yesterday_price = yf.get_price(ticker, db.get_day_string(yesterday))
                     stock_went_up = today_price > yesterday_price
-                    print("\t4: Determined stock movement") # TODO remove
 
                     # Get yesterday's buy prediction for today
-                    # print(f"\t\tdf = \n{df}")
                     row = df.loc[(df['from_day'] == yesterday)]
-                    # print(f"\t\trow = \n{row}") # TODO remove
                     yesterday_buy = row['buy'].iloc[0] if not row.empty else None
-                    # print(f"\t5: yesterday_buy raw value: {yesterday_buy}") # TODO remove
                     buy_acc = db.get_buy_accuracy(ticker)
                     if yesterday_buy == stock_went_up:
                         buy_acc += 1
-                    print("\t6: Calculated buy accuracy") # TODO remove
 
                     # Calculate simulated profit
                     balance = db.get_simulated_profit(ticker, yesterday)
@@ -152,7 +136,6 @@ for model in models:
                         profit = balance * percentage
                         balance += profit
                         balance = round(balance, 2)
-                    print("\t7: Calculated simulated profit") # TODO remove
                     
                     # Debug Prints
                     if yesterday_buy == stock_went_up:
@@ -193,10 +176,6 @@ for model in models:
             db.save_model_acc(ticker, mape, all_time_acc, balance)
             print("done.")
 
-        # TODO 0.7 Verify MAPE calculation correctness. Wrong because it's calculating an
-        #   average of averages, track the APE values individually instead.
-        # TODO 0.7 Verify buy accuracy calculation correctness as fetching has been changed.
-        # TODO 0.7 Verify balance calculation correctness
         last_model = model
 
     except ValueError as e:
