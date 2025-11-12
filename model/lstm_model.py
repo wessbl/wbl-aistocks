@@ -1,89 +1,82 @@
-import yfinance as yf
 import numpy as np
-import pandas as pd
-import pytz
-from datetime import datetime, timedelta
+from model.yf_interface import YFInterface
 import logging
 import os
 logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'    # Suppresses INFO and WARNING messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    # Suppresses INFO and WARNING messages
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'   # Turn off oneDNN custom operations
-import tensorflow as tf
+# import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Dense, LSTM
+from keras.layers import Dense, LSTM, Input
 from sklearn.preprocessing import MinMaxScaler
 
 class LSTMModel:
     # LSTM Performance Variables
     ticker = None               # MSFT | DAC | AAPL
-    time_step = 50              # 50  | 100 |
-    _epochs = 10                # 10  | 50  | 100   #TODO switch to 100 after server switch
+    time_step = 50              # 50   | 100 |
+    _epochs = 50                # 10   | 50  | 100
     _update_epoch = 1           # how many epochs for an update
     _prediction_len = 5         # how many days to predict
-    _start_date = '2015-01-01'
-    last_update = None
+    _start_date = '2017-01-01'  # Initial training start date
+    last_update = None      # Last update as a date 'YYYY-MM-DD'
     _model = None
     orig_data = None
     _scaled_data = None
     prediction = None
     recommendation = None
+    _yf = None
 
     X = np.array([])
     scaler = MinMaxScaler(feature_range=(0,1))
 
     #--- Constructor ---#
-    def __init__(self, ticker, model=None, last_update=None, status=None):
-        # Check for valid model & attempt update
+    def __init__(self, ticker, model=None, last_update=None, status=None, yf=None):
+        # Check for valid model
         if model is not None:
             self.ticker = ticker
             self._model = model
             self.last_update = last_update
             self.status = status
-            print("Model loaded.")
         else:
             # Get data & train brand-new model
             self.ticker = ticker
-            self.preprocess()
-            print("Training new model...")
-            self._model = self.train_model(model)
+            self.status = 'new'
+            self.last_update = '2025-10-01'
+            self._model = self._create_model(model)
+        self._yf = yf
     #------------------------------#
 
-    #--- Function: Create the dataset for LSTM ---#
-    def create_dataset(self, data):
-        X, y = [], []
-        for i in range(len(data) - self.time_step - 1):
-            X.append(data[i:(i + self.time_step), 0])
-            y.append(data[i + self.time_step, 0])
-        return np.array(X), np.array(y)
-    #---------------------------------------------#
-
     #--- Function: Preprocess the latest data ---#
-    def preprocess(self):
-        # Get all data from start through last close (yf excludes end date)
-        today = pd.Timestamp.now().date()
-        if today >= self.last_close():
-            df = yf.download(self.ticker, start=self._start_date)
-        else: 
-            df = yf.download(self.ticker, start=self._start_date, end=today)
-        if (len(df) == 0): raise ValueError("Cannot download from yfinance")
-
-        # Create global orig_data, scaler, scaled_data, X, y
-        orig_data = df['Close'].values
+    def preprocess(self, end_date=None):
+        # Get the latest close prices
+        orig_data = None
+        # If no end date is provided, use the last close date
+        if end_date is None:
+            orig_data = self._yf.get_close_prices(self.ticker, self._start_date)
+        else:
+            orig_data = self._yf.get_close_prices(self.ticker, self._start_date, end_date)
         self.orig_data = orig_data.reshape(-1, 1)    # Reshape into a 2d array: [[1], [2], [3]]
         self.scaler = MinMaxScaler(feature_range=(0,1))
         self._scaled_data = self.scaler.fit_transform(self.orig_data)
+        if np.isnan(self._scaled_data).any():
+            raise ValueError(f"Scaled data for {self.ticker} contains NaNs on {end_date}")
 
         # Create Datasets to feed LSTM
-        self.X, self.y = self.create_dataset(self._scaled_data)
+        X, y = [], []
+        for i in range(len(self._scaled_data) - self.time_step - 1):
+            X.append(self._scaled_data[i:(i + self.time_step), 0])
+            y.append(self._scaled_data[i + self.time_step, 0])
+        self.X, self.y = np.array(X), np.array(y)
         self.X = self.X.reshape(self.X.shape[0], self.X.shape[1], 1)
     #---------------------------------------------#
 
-    #--- Function: Train a new or existing model ---#
-    def train_model(self, model):
+    #--- Function: Set model properties and compile ---#
+    def _create_model(self, model):
+        # TODO 0.9 do some quick testing to find which values work best for each ticker
         # Build and compile the LSTM, if needed
         if (model == None):
             model = Sequential()
-            model.add(LSTM(200, return_sequences=True, input_shape=(self.time_step, 1)))
+            model.add(Input(shape=(self.time_step, 1)))
             model.add(LSTM(200))
             model.add(Dense(128))
             model.add(Dense(32))
@@ -91,10 +84,6 @@ class LSTMModel:
             model.add(Dense(1))
             model.compile(optimizer='adam', loss='mean_squared_error')
 
-        # Train model
-        model.fit(self.X, self.y, epochs=self._epochs, batch_size=64)
-        self.last_update = self.last_close()
-        print("Model is trained!")
         return model
     #-----------------------------------------------#
 
@@ -134,45 +123,12 @@ class LSTMModel:
         return prediction
     #------------------------------------------------------#
 
-    #--- Function: Get the last market close date ---#
-    def last_close(self):
-        # Get the current time & day
-        now = datetime.now(pytz.timezone('US/Eastern'))
-        today = now.date()
-
-        # If the market is closed, return today
-        market_close_time = now.replace(hour=16, minute=0, second=0)
-        market_closed = market_close_time <= now
-        if market_closed:
-            return today
-
-        # Get data for last several closes and capture date
-        two_weeks = now - timedelta(days=10)
-        minidata = yf.download(self.ticker, start=two_weeks, end=today)
-        minidata.reset_index(inplace=True)
-        minidata = minidata['Date']
-
-        # Get 'yesterday': the last market close before today
-        yesterday = minidata[len(minidata) - 1] # Last market close
-        yesterday = yesterday.to_pydatetime().date()
-        return yesterday
-    #---------------------------------------------------#
-
-    #--- Function: Check if the model needs to be updated ---#
-    def needs_update(self):
-        # If the model is None, it needs to be updated
-        if self._model is None or self.last_update.date() < self.last_close():
-            return True
-
-        # Otherwise, no update needed
-        return False
-#------------------------------------------------------------#
-
-    #--- Function: Train the model on the latest closing price ---#
-    def train(self, epochs, mse_threshold=0):
-        global model
-        # model.compile(optimizer='adam', loss='mse', metrics=[MeanSquaredError()])
-        self.preprocess()
+    #--- Function: Train the model up to given date ---#
+    def train(self, epochs, end_date=None, mse_threshold=0):
+        if end_date is None:
+            self.preprocess()
+        else:
+            self.preprocess(end_date)
 
         # Loop until threshold either threshold is met or epochs exausted
         counter = 0
@@ -180,6 +136,7 @@ class LSTMModel:
         while (mse_value > mse_threshold) and (counter < epochs):
             epochs_ = epochs
             # Only do 5 epochs at a time if we're going for threshold
+            # TODO 0.9 do a mix of epochs and threshold
             if mse_threshold > 0:
                 epochs_ = 5
             history = self._model.fit(self.X, self.y, epochs=epochs_, batch_size=64)
@@ -194,22 +151,14 @@ class LSTMModel:
                         print('MSE value ' + str(round(mse_value, 5)) + ' is inadequate but epochs maxed out.')
                 else:
                     print('MSE value ' + str(round(mse_value, 5)) + ' is adequate.')
-
-        self.last_update = self.last_close()
+        self.last_update = self._yf.last_close()
     #-------------------------------------------------------------#
 
     #--- Function: Determine whether to buy or sell stock ---#
-    def buy_or_sell(self, prediction):
+    def percentage_change(self, prediction):
         last_price = self.orig_data[len(self.orig_data) - 1][0]
         last_predicted = prediction[len(prediction) - 1]
-        percent = (last_predicted * 100 / last_price)
-
-        if last_price <= last_predicted:
-            percent = percent - 100
-            percent = str(f"{percent:.2f}")
-            return "<b>Buy</b><br>AIStockHelper says this stock will go up in value by " + percent + "%."
-        else:
-            percent = 100 - percent
-            percent = str(f"{percent:.2f}")
-            return "<b>Sell</b><br>AIStockHelper says this stock will go down in value by " + percent + "%."
+        ratio = (last_predicted / last_price)
+        percent = (ratio - 1) * 100
+        return percent
     #---------------------------------------------------------#

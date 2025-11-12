@@ -78,6 +78,19 @@
         <div id="predictionResult">
             <!-- Prediction results displayed here when available-->
         </div>
+        <div class="add-stock">
+            <div class="collapsible">Want to add a new ticker?</div>
+            <div class="hidden">
+                <p>Add one here! The model will be trained after next market close.</p>
+                <form id="addStockForm" action="/add_stock" method="post">
+                    <input type="text" name="requested_stock_symbol" placeholder="Enter stock symbol" required>
+                    <button type="submit">Add Stock</button>
+                </form>
+                <div id="add-stock-result">
+                    <!-- Result of adding stock will be displayed here -->
+                </div>
+            </div>
+        </div>
     </div>
     <script>
         document.querySelector('.collapsible').addEventListener('click', function() {

@@ -1,14 +1,17 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from model.model import Model
+from model.db_interface import DBInterface
 import os
 import time
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
 
 # Keep some logs B)
 import logging
 logging.basicConfig(filename='flask.log', level=logging.DEBUG)
 
-# Dictionary of models ticker : Model
-models = {}
+# List of tickers
+tickers = {}
 
 app = Flask(__name__)
 
@@ -37,43 +40,58 @@ def predict():
     print(f"\nPredict button clicked for ticker: {ticker}")
 
     try:
-        model = models.get(ticker)
-        if model is None:
-            models[ticker] = Model(ticker)
-            model = models[ticker]
-        
-        # Possible states are in_progress, pending, completed
+        # Load the ticker information from the database
+        dbi = DBInterface(os.path.join(BASE_DIR, 'static', 'models'))
+        if ticker not in dbi.get_tickers():
+            # TODO 0.8 handle new ticker entry
+            return jsonify({'error': f'Ticker {ticker} not found in database. Please add it first.'}), 400
+        model, result, last_update, status = dbi.load_model(ticker)
+        print(f"Model loaded for {ticker}: result={result}, last_update={last_update}, status={status}")
+
+        # Possible states are new, in_progress, completed
         #   |   STATUS      |     FRONT END     |     BACK END      |
+        #   | new           |   No Image Lookup |  Nothing          |
         #   | in_progress   |   Not affected    |  Updating         |
-        #   | pending       |   Needs refresh   |  Update finished  |
         #   | completed     |   Refreshed       |  Update finished  |
-        status = model.get_status() # Checks DB
-        recommendation = model.recommendation
+
+        if status == 'new':
+            recommendation = 'The AI will be trained on this ticker during the next update<br>(within 24 hours).'
+            response = jsonify({
+                'result': recommendation,
+            })
+            response.headers['Cache-Control'] = 'no-store'
+            return response
+        
+        # Create text recommendation if it's stil a number
+        if isinstance(result, float):
+            recommendation = f"The AI recommends to <b>{'BUY' if result > 0 else 'SELL'}</b> {ticker}.<br>"
+            recommendation += f"Predicted change: {result:.2f}%"
+        else:
+            recommendation = "Sorry, something went wrong and the recommendation came back empty."
 
         if status == 'in_progress':
             print('Model is currently being updated')
             # If the model is in progress, we return the last recommendation
-            recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + model.recommendation
+            if result is None:
+                recommendation = 'The AI is currently being trained on this ticker.<br>Please try again later.'
+                response = jsonify({
+                    'result': recommendation,
+                })
+                response.headers['Cache-Control'] = 'no-store'
+                return response
+            else:
+                recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + recommendation
         
-        elif status == 'pending':
-            print('Model has been updated, refreshing now...'),
-            print(f"\t[Pre-pop] Model ID: {id(models.get(ticker))}")
-            models.pop(ticker, None)
-            print(f"\t[Post-pop] Exists? {ticker in models}")
-            new_model = Model(ticker)
-            new_model.update_completed()
-            models[ticker] = new_model
-            recommendation = model.recommendation
-            print('...done. Status set to ', model.get_status())
-
         elif status == 'completed':
             print(f'Model is up-to-date. There are {models.__len__()} models in memory.')
 
         else: raise ValueError(f"Unknown status: {status}")
-
+        
         # Prepare image paths
-        img1_path = model.img1_path.replace('\\', '/')
-        img2_path = model.img2_path.replace('\\', '/')
+        img1_path = 'static/images/' + ticker + 'pred.png'
+        img1_path = img1_path.replace('\\', '/')
+        img2_path = 'static/images/' + ticker + 'mirr.png'
+        img2_path = img2_path.replace('\\', '/')
 
         # Return the recommendation and image paths
         response = jsonify({
@@ -85,12 +103,30 @@ def predict():
         return response
     
     except ConnectionError as e:
-        model = None
         return jsonify({'result': 'Connection error occurred, likely issue with yfinance.'})
     except Exception as e:
-        model = None
         msg = 'An unknown error occurred: ' + str(e)
         return jsonify({'result': msg})
+
+# TODO 0.8 front end not set up for this yet but the method may be useful
+# @app.route('/add_ticker', methods=['POST'])
+# def add_ticker():
+#     stock_symbol = request.form.get('requested_stock_symbol', '').strip().upper()
+#     if not stock_symbol:
+#         return jsonify({'error': 'No stock symbol provided'}), 400
+
+#     print(f"Adding ticker: {stock_symbol}")
+#     try:
+#         # Check if the model already exists
+#         if stock_symbol in models:
+#             return jsonify({'message': f'Model for {stock_symbol} already exists.'}), 200
+        
+#         # Create a new model and add it to the models dictionary
+#         models[stock_symbol] = Model(stock_symbol, MODELS_PATH, IMG_PATH)
+#         return jsonify({'message': f'Model for {stock_symbol} added successfully. It will be trained in 24 hours.'}), 200
+    
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
 #--- First Boot ---#
 if __name__ == '__main__':
@@ -104,5 +140,14 @@ if __name__ == '__main__':
     if not os.path.exists(mdl_dir):
         os.makedirs(mdl_dir)
     
-    app.run(debug=False)
+    # Check for version updates
+    print("Checking for version updates...")
+    if os.path.exists('fs_version_update.py'):
+        import fs_version_update
+        result = fs_version_update.update_fs()
+        if not result:
+            print("Update failed, exiting app.")
+            exit(1)
+    
+    app.run(debug=True, use_reloader=False) # set to False for production
 #---------------------#
