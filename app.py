@@ -83,7 +83,7 @@ def predict():
                 recommendation = '<i>Model is currently being updated, but here is the last recommendation:</i><br><br>' + recommendation
         
         elif status == 'completed':
-            print(f'Model is up-to-date. There are {models.__len__()} models in memory.')
+            print(f'Model is up-to-date.')
 
         else: raise ValueError(f"Unknown status: {status}")
         
