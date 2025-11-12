@@ -10,7 +10,7 @@ old_db = os.path.join(SAVE_PATH, 'models.db')
 new_db = os.path.join(SAVE_PATH, 'futurestock.db')
 
 # If you would like to scrub the database, set this to True
-SCRUB_DB = True
+SCRUB_DB = False
 
 # Update to 0.7 - db_overhaul
 def update_fs():

@@ -14,6 +14,7 @@ class DBInterface:
     def __init__(self, SAVE_PATH, all_dates=None):
         # Set the database path
         self._db_path = os.path.join(SAVE_PATH, 'futurestock.db')
+        self._ensure_db_exists()
         self._lstm_path = SAVE_PATH
         if all_dates is not None:
             self._all_dates = all_dates
@@ -26,6 +27,40 @@ class DBInterface:
         if not os.path.exists(self._lstm_path):
             raise FileNotFoundError(f"LSTM path not found at {self._lstm_path}")
     #-----------------------------------------------------------------------------#
+
+    #--- Function: Create the database if needed ---#
+    def _ensure_db_exists(self):
+        """Create the database file and base schema if missing."""
+        if not os.path.exists(self._db_path):
+            print(f"[DBI] Database not found — creating {self._db_path}...")
+            conn = sqlite3.connect(self._db_path)
+
+            # TODO Create tables here, for example:
+            # cursor = conn.cursor()
+            # cursor.execute("""
+            #     CREATE TABLE IF NOT EXISTS models (
+            #         id INTEGER PRIMARY KEY AUTOINCREMENT,
+            #         stock_symbol TEXT NOT NULL,
+            #         model_data BLOB NOT NULL,
+            #         last_updated TEXT NOT NULL
+            #     );
+            # """)
+
+            # cursor.execute("""
+            #     CREATE TABLE IF NOT EXISTS predictions (
+            #         id INTEGER PRIMARY KEY AUTOINCREMENT,
+            #         stock_symbol TEXT NOT NULL,
+            #         predicted_price REAL NOT NULL,
+            #         actual_price REAL,
+            #         prediction_date TEXT NOT NULL
+            #     );
+            # """)
+
+            # Add other tables as needed
+            conn.commit()
+            conn.close()
+    #-----------------------------------------------#
+
 
     #--- Function: Check if an updater is already running ---#
     def is_updater_running(self):
