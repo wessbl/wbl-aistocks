@@ -51,7 +51,15 @@ This will launch the app locally at `http://127.0.0.1:5000/`.
 wess.lancaster@gmail.com
 
 ## Version History
-* 0.6
+* 0.7 DB Overhaul
+    * Massive back-end improvements not yet available in the UI: database overhauled, predictions tracked, and the updater now calculates daily APE/MAPE and profit simulation values
+    * Front end now relies entirely on database data; no model creation occurs in the UI
+    * DBI and YFI are instantiated at startup and their objects are passed to other classes as needed
+    * YFI caches all stock prices on load and serves slices of it on demand
+    * Fixed caching issues that previously showed incorrect predictions on past days
+    * Models are initially trained on every day since their last update (or from a fallback start date for new models)
+    * See [commit change](https://github.com/wessbl/wbl-aistocks/commit/6e0d5d232b39b50cb865c77d185daf6909aeb054)
+* 0.6 Updater
     * Program has an updater file that can be run by a service automatically
     * Users no longer need to wait for a model to train
     * Models are now stored with a status for update handling
@@ -60,22 +68,22 @@ wess.lancaster@gmail.com
     * Added basic formatting for prediction message (bold and new line)
     * Removed "Not loading?" Message
     * See [commit change](https://github.com/wessbl/wbl-aistocks/commit/2406748f5aac82f328ce579fc554bb37e5ea3610)
-* 0.5
+* 0.5 Front-End Rework
     * Images now resize with smaller screens/windows
     * Added white paper and repo links
     * Added hideable "Not loading?" message
     * Decreased prediction length due to slow server response
     * See [commit change](https://github.com/wessbl/wbl-aistocks/commit/5740fac657a7a16181d3a19ea7f43b089d096ad2)
-* 0.4
+* 0.4 General Updates
     * Squashed bug that prevented model updates
     * Added db_interface.py - currently only for admin operations
     * Directory cleanup
     * See [commit change](https://github.com/wessbl/wbl-aistocks/commit/22f1e557d6ba796af350a90c0b23e42befec3ae0)
-* 0.3
+* 0.3 General Updates
     * General directory cleanup, removal of debug prints
     * Lowered epochs due to slow server response
     * See [commit change](https://github.com/wessbl/wbl-aistocks/commit/678685f3d3f6fe2298b1375f311f48b0a9492b44)
-* 0.2
+* 0.2 General Updates
     * All models held in a dictionary for immediate response time
     * Constant prediction & image generation prevented
     * Wrapper class added around lstm_model.py
