@@ -34,8 +34,7 @@ def update_fs():
             os.rename(old_db, new_db)
             print("done.")
         except FileNotFoundError:
-            print("already renamed. Update already performed, exiting.")
-            return True
+            print("already renamed. Update already performed or original db not found.")
 
         # Step 2: Connect to the new DB
         print("\t2. Connecting to the new database...", end=' ')
