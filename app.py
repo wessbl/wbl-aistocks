@@ -51,10 +51,8 @@ def predict():
 
         # Format the buy accuracy to be a string
         if buy_acc is not None:
-            # Show no decimal values for buy accuracy, as it is a percentage
             buy_acc = int(round(buy_acc, 0))  # Convert to int to remove decimal point
-            print(f"Buy accuracy rounded to {buy_acc}") # TODO remove debug print
-            buy_acc = f"This model's buy/sell recommendations are correct <b>{buy_acc}%</b> of the time."
+            buy_acc = f"Buy/sell recommendations have been <b>{buy_acc}%</b> accurate."
             # print(buy_acc) # TODO remove
 
         # Format the balance to be a string for up/down percentage
@@ -131,10 +129,7 @@ def predict():
         response = jsonify({
             'result': recommendation,
             'img1_path': f"{img1_path}?t={int(time.time())}",
-            'img2_path': f"{img2_path}?t={int(time.time())}",
-            'mape': mape,
-            'buy_acc': buy_acc,
-            'balance': balance
+            'img2_path': f"{img2_path}?t={int(time.time())}"
         })
         response.headers['Cache-Control'] = 'no-store'
         return response
