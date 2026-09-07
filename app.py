@@ -45,8 +45,30 @@ def predict():
         if ticker not in dbi.get_tickers():
             # TODO 0.8 handle new ticker entry
             return jsonify({'error': f'Ticker {ticker} not found in database. Please add it first.'}), 400
-        model, result, last_update, status = dbi.load_model(ticker)
-        print(f"Model loaded for {ticker}: result={result}, last_update={last_update}, status={status}")
+        result, mape, buy_acc, balance, last_update, status = dbi.load_model(ticker)
+        print(f"Data loaded for {ticker}: result={result}, last_update={last_update}, status={status}")
+        # print(f"Model metrics: mape={mape}, buy_acc={buy_acc}, balance={balance}") # TODO remove debug print
+
+        # Format the buy accuracy to be a string
+        if buy_acc is not None:
+            # Show no decimal values for buy accuracy, as it is a percentage
+            buy_acc = int(round(buy_acc, 0))  # Convert to int to remove decimal point
+            print(f"Buy accuracy rounded to {buy_acc}") # TODO remove debug print
+            buy_acc = f"This model's buy/sell recommendations are correct <b>{buy_acc}%</b> of the time."
+            # print(buy_acc) # TODO remove
+
+        # Format the balance to be a string for up/down percentage
+        if balance is not None:
+            if balance < 100:
+                balance = f"This model has <b>lost {100-balance:.2f}%</b> over its lifetime."
+            else:
+                balance = f"This model has <b>gained {balance-100:.2f}%</b> over its lifetime."
+            # print(balance) # TODO remove
+
+        # Format the mape as a string
+        if mape is not None:
+            mape = f"Mean Absolute Percentage Error: <b>{mape:.2f}%</b> (the smaller the better)."
+            # print(mape) # TODO remove
 
         # Possible states are new, in_progress, completed
         #   |   STATUS      |     FRONT END     |     BACK END      |
@@ -64,8 +86,20 @@ def predict():
         
         # Create text recommendation if it's stil a number
         if isinstance(result, float):
+            # print("starting to build recommendation string") # TODO remove debug print
             recommendation = f"The AI recommends to <b>{'BUY' if result > 0 else 'SELL'}</b> {ticker}.<br>"
-            recommendation += f"Predicted change: {result:.2f}%"
+            print("buy/sell complete") # TODO remove debug print
+            recommendation += f"Predicted change: {'+' if result >= 0 else ''}{result:.2f}%.<br>"
+            # print("predicted change complete") # TODO remove debug print
+            if buy_acc is not None:
+                recommendation += f"{buy_acc}<br>"
+                # print("buy accuracy complete") # TODO remove debug print
+            if balance is not None:
+                recommendation += f"{balance}<br>"
+                # print("balance complete") # TODO remove debug print
+            if mape is not None:
+                recommendation += f"{mape}<br>"
+                # print("mape complete") # TODO remove debug print
         else:
             recommendation = "Sorry, something went wrong and the recommendation came back empty."
 
@@ -97,7 +131,10 @@ def predict():
         response = jsonify({
             'result': recommendation,
             'img1_path': f"{img1_path}?t={int(time.time())}",
-            'img2_path': f"{img2_path}?t={int(time.time())}"
+            'img2_path': f"{img2_path}?t={int(time.time())}",
+            'mape': mape,
+            'buy_acc': buy_acc,
+            'balance': balance
         })
         response.headers['Cache-Control'] = 'no-store'
         return response

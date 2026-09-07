@@ -163,17 +163,18 @@ class DBInterface:
     #--- Function: Load from DB ---#
     def load_model(self, ticker):
         # Load the model from file
-        path = self.get_lstm_path(ticker)
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Model file not found at {path}")
-        model = load_model(path, compile=False)
-        model.compile(optimizer='adam', loss='mean_squared_error')
+        # TODO: Is there any need to load the model from file here? This is only for the front end
+        # path = self.get_lstm_path(ticker)
+        # if not os.path.exists(path):
+        #     raise FileNotFoundError(f"Model file not found at {path}")
+        # model = load_model(path, compile=False)
+        # model.compile(optimizer='adam', loss='mean_squared_error')
 
         # Get model data from the database
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         cursor.execute('''
-                       SELECT result, last_update, status
+                       SELECT result, mape, buy_acc, balance, last_update, status
                        FROM model
                        WHERE ticker = ?''',
                        (ticker,))
@@ -181,12 +182,12 @@ class DBInterface:
         conn.close()
 
         if row:
-            result, last_update, status = row
+            result, mape, buy_acc, balance, last_update, status = row
             print("Loaded data for ticker: ", ticker)
             # print("\nLoaded data! Ticker:\t", ticker,
             #     "\nModel:\t\t", model, "\nLast Update:\t", last_update,
             #     "\nResult:\t\t", result, "\nStatus:\t\t", status)
-            return model, result, last_update, status
+            return result, mape, buy_acc, balance, last_update, status
         else:
             raise ValueError("Model could not be found in the database.")
     #------------------------------#
@@ -637,7 +638,7 @@ class DBInterface:
         return erroneous_tickers
     #-----------------------------------------#
 
-    #--- Function: Perform Some Update ---#
+    #--- Misc Function: Perform Some Update ---#
     def do_update(self, instructions):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -646,7 +647,7 @@ class DBInterface:
         conn.close()
     #-------------------------------------#
 
-    #--- Function: Perform Some Query ---#
+    #--- Misc Function: Perform Some Query ---#
     def run_query(self, instructions):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()

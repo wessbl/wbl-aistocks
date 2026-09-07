@@ -20,7 +20,7 @@ def update_fs():
     try:
         # Prep: Initialize YFI and DBI
         print("\tPrepping YF and DB interfaces...", end=' ')
-        yf = YFInterface(['AAPL'], '2025-10-01')
+        yf = YFInterface(['AAPL'], '2026-09-01')
         dates = yf.get_all_dates()
         if not SCRUB_DB:
             db = DBInterface(SAVE_PATH, dates)
@@ -34,7 +34,25 @@ def update_fs():
             os.rename(old_db, new_db)
             print("done.")
         except FileNotFoundError:
-            print("already renamed. Update already performed or original db not found.")
+            print("original db not found.")
+        # Check if the new db already exists
+        if os.path.exists(new_db):
+            if not SCRUB_DB:
+                print("\t\tfuturestock.db already exists. Exiting update.")
+                return True # safe place to exit, since the update has already been done
+            else:
+                import sys
+                import select
+                import time
+                print("\t\t***SCRUBBING DATABASE in 5 seconds! Press Enter to cancel***")
+                # Allow user 5 seconds to hit enter to cancel the update
+                start_time = time.time()
+                while time.time() - start_time < 5:
+                    remaining = 5 - (time.time() - start_time)
+                    ready, _, _ = select.select([sys.stdin], [], [], remaining)
+                    if ready and sys.stdin.readline().rstrip("\n") == "":
+                        print("Update cancelled.")
+                        return True # continue running
 
         # Step 2: Connect to the new DB
         print("\t2. Connecting to the new database...", end=' ')
@@ -101,12 +119,8 @@ def update_fs():
 
         # Step 6 Create Day table
         print("\t6. Creating Day table if it doesn't exist...", end=' ')
-        db.populate_dates(dates)  # This will create the table if it doesn't exist
-        result = db.get_day_num('2099-01-01')
-        if result != -1:
-            print("Day table is up to date!")
-        else: 
-            print("Error: Couldn't find date.")
+        db.populate_dates(dates)  # This will fill in the table
+        print("Day table is up to date!")
         
         # Step 7: Create prediction table if it doesn't exist
         print("\t7. Creating prediction table if it doesn't exist...", end=' ')
