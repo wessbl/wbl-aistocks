@@ -1,4 +1,6 @@
 import os
+import sqlite3
+import sys
 import pandas as pd
 # logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    # Suppresses INFO and WARNING messages
@@ -12,6 +14,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.normpath(os.path.join(BASE_DIR, '..'))
 MODELS_PATH = os.path.join(BASE_DIR, 'static', 'models')
 IMG_PATH = os.path.join(BASE_DIR, 'static', 'images')
+
+def handle_uncaught_exception(exc_type, exc_value, traceback):
+    if issubclass(exc_type, sqlite3.OperationalError) and 'database is locked' in str(exc_value).lower():
+        print("Could not perform update, the database is locked.")
+        return
+    sys.__excepthook__(exc_type, exc_value, traceback)
+
+sys.excepthook = handle_uncaught_exception
 
 print("*** Beginning Scheduled Update ***")
 

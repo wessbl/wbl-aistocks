@@ -6,7 +6,21 @@ A Flask-based LSTM application that predicts future stock prices for selected ti
 
 ## Description
 
-This application trains LSTM models on selected stock tickers and continuously updates them. With every new closing price, the app loads a pre-trained model from an SQLite database. If the market has closed since the last prediction, the model is updated, a new prediction is generated, and both are saved. Results include formatted text and visualizations.
+This application trains LSTM models on selected stock tickers and continuously updates them. With every new closing price, the app loads a pre-trained model from an SQLite database. The model is trained on the fresh data, a new five-day forecast is generated, and both are saved. Results are given as percentages and graphs.
+
+### Results
+
+One Buy/Sell recommendation is provided every day based on the predicted change.
+
+The prediction graph shows historical prices in blue and the most recent forecast in orange, with a dotted line marking the boundary between actual market prices and predicted prices.
+
+Buy/sell recommendation accuracy notes how accurately each prediction matches the next day's actual price movement.
+
+Simulated return shows the percentage loss/gain of following each Buy/Sell recommendation.
+
+Mean Absolute Percentage Error (MAPE) is a statistical metric that measures the average size of prediction errors as a percentage - lower is better.
+
+The Model Against Actual Price graph shows the next-day predictions overlaid on actual prices across the entire training set used by the model, demonstrating how closely the model's predictions align with the stock price.
 
 > **Note:** This is a portfolio project demonstrating AI integration and should not be interpreted as financial advice.
 

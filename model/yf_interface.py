@@ -31,16 +31,24 @@ class YFInterface:
                 self._prices[ticker] = df.xs(ticker, axis=1, level=0)
         else:
             self._prices[tickers[0]] = df  # only one ticker
+
+    #--- Function: Remove trailing rows without a closing price ---#
+    def _closed_data(self, data):
+        valid_positions = data['Close'].notna().to_numpy().nonzero()[0]
+        if len(valid_positions) == 0:
+            return data.iloc[:0]
+        return data.iloc[:valid_positions[-1] + 1]
+    #---------------------------------------------------------------#
     
     #--- Function: Get all dates since a given date ---#
-    def get_all_dates(self, since_date="2026-09-01"):
+    def get_all_dates(self, since_date="2026-09-16"):
         """
         Get all dates since a given date.
         :param since_date: The date to start from in 'YYYY-MM-DD' format.
         :return: A list of dates as strings in 'YYYY-MM-DD' format.
         """
         any_df = next(iter(self._prices.values()))
-        data = any_df.index
+        data = self._closed_data(any_df).index
 
         # Convert since_date to a pandas Timestamp
         since_timestamp = pd.Timestamp(since_date)
@@ -70,6 +78,7 @@ class YFInterface:
     def last_close(self):
         """ Check if the market is closed today by checking if yfinance has a close date for today."""
         any_df = next(iter(self._prices.values()))
+        any_df = self._closed_data(any_df)
         data = any_df.index[-1]  # Get the last date in the index
         date = data.strftime('%Y-%m-%d')
         return date
@@ -80,7 +89,7 @@ class YFInterface:
         """ Get the latest close prices for a ticker from yfinance."""
         if ticker not in self._prices:
             raise ValueError(f"Ticker {ticker} not found in the cached prices.")
-        df = self._prices[ticker]
+        df = self._closed_data(self._prices[ticker])
         df = df.loc[start_date:end_date] if end_date else df.loc[start_date:]
         prices = df['Close'].values
         return prices
@@ -92,7 +101,7 @@ class YFInterface:
         if ticker not in self._prices:
             raise ValueError(f"Ticker {ticker} not found in the cached prices.")
         
-        df = self._prices[ticker]
+        df = self._closed_data(self._prices[ticker])
         # Get index of start_date
         index = df.index.get_indexer([pd.Timestamp(start_date)], method='pad')[0]
         if index == -1:

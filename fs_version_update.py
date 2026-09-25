@@ -20,7 +20,7 @@ def update_fs():
     try:
         # Prep: Initialize YFI and DBI
         print("\tPrepping YF and DB interfaces...", end=' ')
-        yf = YFInterface(['AAPL'], '2026-09-01')
+        yf = YFInterface(['AAPL'], '2026-09-16')
         dates = yf.get_all_dates()
         if not SCRUB_DB:
             db = DBInterface(SAVE_PATH, dates)

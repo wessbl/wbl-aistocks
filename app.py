@@ -52,20 +52,16 @@ def predict():
         # Format the buy accuracy to be a string
         if buy_acc is not None:
             buy_acc = int(round(buy_acc, 0))  # Convert to int to remove decimal point
-            buy_acc = f"Buy/sell recommendations have been <b>{buy_acc}%</b> accurate."
+            buy_acc = f"Buy/sell recommendation accuracy: <b>{buy_acc}%</b>"
             # print(buy_acc) # TODO remove
 
         # Format the balance to be a string for up/down percentage
         if balance is not None:
-            if balance < 100:
-                balance = f"This model has <b>lost {100-balance:.2f}%</b> over its lifetime."
-            else:
-                balance = f"This model has <b>gained {balance-100:.2f}%</b> over its lifetime."
-            # print(balance) # TODO remove
+            balance = f"Simulated return: <b>{100-balance:.2f}%</b>"
 
         # Format the mape as a string
         if mape is not None:
-            mape = f"Mean Absolute Percentage Error: <b>{mape:.2f}%</b> (the smaller the better)."
+            mape = f"Mean Absolute Percentage Error: <b>{mape:.2f}%</b>."
             # print(mape) # TODO remove
 
         # Possible states are new, in_progress, completed
@@ -82,22 +78,23 @@ def predict():
             response.headers['Cache-Control'] = 'no-store'
             return response
         
-        # Create text recommendation if it's stil a number
+        # Create text version of recommendation and model metrics
+        model_metrics = ""
         if isinstance(result, float):
             # print("starting to build recommendation string") # TODO remove debug print
             recommendation = f"The AI recommends to <b>{'BUY' if result > 0 else 'SELL'}</b> {ticker}.<br>"
             print("buy/sell complete") # TODO remove debug print
             recommendation += f"Predicted change: {'+' if result >= 0 else ''}{result:.2f}%.<br>"
             # print("predicted change complete") # TODO remove debug print
+
+            # Deliver model metrics through a different string
             if buy_acc is not None:
-                recommendation += f"{buy_acc}<br>"
-                # print("buy accuracy complete") # TODO remove debug print
+                model_metrics += buy_acc + "<br>"
             if balance is not None:
-                recommendation += f"{balance}<br>"
-                # print("balance complete") # TODO remove debug print
-            if mape is not None:
-                recommendation += f"{mape}<br>"
-                # print("mape complete") # TODO remove debug print
+                model_metrics += balance + "<br>"
+            if mape is not None: 
+                model_metrics += mape
+            print(model_metrics) # TODO remove debug print
         else:
             recommendation = "Sorry, something went wrong and the recommendation came back empty."
 
@@ -108,6 +105,7 @@ def predict():
                 recommendation = 'The AI is currently being trained on this ticker.<br>Please try again later.'
                 response = jsonify({
                     'result': recommendation,
+                    'model_metrics': model_metrics
                 })
                 response.headers['Cache-Control'] = 'no-store'
                 return response
@@ -129,6 +127,7 @@ def predict():
         response = jsonify({
             'result': recommendation,
             'img1_path': f"{img1_path}?t={int(time.time())}",
+            'model_metrics': model_metrics,
             'img2_path': f"{img2_path}?t={int(time.time())}"
         })
         response.headers['Cache-Control'] = 'no-store'

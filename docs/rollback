@@ -1,0 +1,30 @@
+/* 	Rollback Script:
+	Useful for testing how updater by removing the most recent day's data.
+	Can be run multiple times.
+*/
+DROP TABLE IF EXISTS var;
+
+CREATE TEMP TABLE var AS
+SELECT MAX(day_id) - 1 --update here
+AS target FROM day;
+
+DELETE FROM daily_accuracy where day > (SELECT target FROM var);
+DELETE FROM day where day_id > (SELECT target FROM var); -- no need?
+DELETE FROM prediction WHERE from_day > (SELECT target from var);
+UPDATE model SET last_update = (
+	SELECT date FROM day
+	WHERE day_id = (
+		SELECT target FROM var
+	)
+);
+-- keep day_id iteration intact. Not important for other tables.
+UPDATE sqlite_sequence set seq = (
+	SELECT
+		CASE WHEN seq = 0
+		THEN 0
+		ELSE seq - 1
+		END
+	FROM sqlite_sequence WHERE name = 'day')
+WHERE name = 'day';
+
+DROP TABLE var;

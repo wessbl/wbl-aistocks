@@ -2,7 +2,9 @@ import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import StrMethodFormatter
 import numpy as np
+from keras.models import load_model
 from model.lstm_model import LSTMModel
 
 # A wrapper class for LSTMModels that generates images
@@ -33,7 +35,8 @@ class Model:
 
         # First, try to load an existing model
         try:
-            keras_model, self.recommendation, last_update, self._status = self._db.load_model(ticker)
+            self.recommendation, mape, buy_acc, balance, last_update, self._status = self._db.load_model(ticker)
+            keras_model = load_model(self._db.get_lstm_path(ticker), compile=False)
             self._lstm = LSTMModel(ticker, keras_model, last_update, self._status, self._yf)
 
         # If the model doesn't exist, create a new one
@@ -68,18 +71,29 @@ class Model:
         zoom_data = _lstm.orig_data[-_lstm.time_step:]
         dividing_line = _lstm.time_step - 1
         end = dividing_line + len(prediction)
-        date = self._db.get_day_string(self._db.today_num())
+        # date = self._db.get_day_string(self._db.today_num())
         plt.figure(figsize=(6, 3))
         plt.title(f'Prediction - {_lstm.ticker}')
-        plt.axvline(x=dividing_line, color='grey', linestyle=':', label=date)
+        plt.axvline(x=dividing_line, color='grey', linestyle=':')
         plt.plot(zoom_data, label="Actual Price")
         plt.plot(np.arange(dividing_line, end), prediction, label='Prediction')
+        prediction_dates = self._yf.get_all_dates(_lstm._start_date)[-len(zoom_data):]
+        prediction_ticks = np.unique([
+            0,
+            len(prediction_dates) // 2,
+            len(prediction_dates) - 1,
+        ]) if prediction_dates else np.array([], dtype=int)
+        prediction_labels = [prediction_dates[tick] for tick in prediction_ticks]
+        plt.xticks(prediction_ticks, prediction_labels)
+        # Format y-axis as currency with no decimal places
+        plt.gca().yaxis.set_major_formatter(StrMethodFormatter('${x:,.0f}'))
         plt.legend()
         
         # Save image
         if not os.path.exists(os.path.dirname(self.img1_path)):
             print("Directory doesn't exist!")
             raise FileNotFoundError(f"Directory for {self.img1_path} does not exist.")
+        plt.tight_layout()
         plt.savefig(self.img1_path)
         plt.close()
     #------------------------------------------#
@@ -95,9 +109,14 @@ class Model:
         plt.title(f'Model Against Actual Price - {model.ticker}')
         plt.plot(model.orig_data, label="Actual Price")
         plt.plot(np.arange(start, end), mirror, label='Model Prediction')
+        plt.xticks([])
+        plt.xlabel('All Time')
+        # Format y-axis as currency with no decimal places
+        plt.gca().yaxis.set_major_formatter(StrMethodFormatter('${x:,.0f}'))
         plt.legend()
 
         # Save as file
+        plt.tight_layout()
         plt.savefig(self.img2_path)
         plt.close()
     #-----------------------------------------------#

@@ -2,6 +2,7 @@ import numpy as np
 from model.yf_interface import YFInterface
 import logging
 import os
+import sys
 logging.getLogger('tensorflow').setLevel(logging.ERROR) # Set tf logs to error only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    # Suppresses INFO and WARNING messages
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'   # Turn off oneDNN custom operations
@@ -35,13 +36,14 @@ class LSTMModel:
         if model is not None:
             self.ticker = ticker
             self._model = model
+            self._model.compile(optimizer='adam', loss='mean_squared_error')
             self.last_update = last_update
             self.status = status
         else:
             # Get data & train brand-new model
             self.ticker = ticker
             self.status = 'new'
-            self.last_update = '2026-09-01'
+            self.last_update = '2026-09-16'
             self._model = self._create_model(model)
         self._yf = yf
     #------------------------------#
@@ -139,7 +141,12 @@ class LSTMModel:
             # TODO 0.9 do a mix of epochs and threshold
             if mse_threshold > 0:
                 epochs_ = 5
-            history = self._model.fit(self.X, self.y, epochs=epochs_, batch_size=64)
+            history = self._model.fit(
+                self.X,
+                self.y,
+                epochs=epochs_,
+                batch_size=64,
+            )
             mse_values = history.history['loss']
             mse_value = mse_values[-1:][0]
             counter += epochs_
