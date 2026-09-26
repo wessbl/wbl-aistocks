@@ -41,7 +41,7 @@ class YFInterface:
     #---------------------------------------------------------------#
     
     #--- Function: Get all dates since a given date ---#
-    def get_all_dates(self, since_date="2026-09-16"):
+    def get_all_dates(self, since_date="2025-10-01"):
         """
         Get all dates since a given date.
         :param since_date: The date to start from in 'YYYY-MM-DD' format.
